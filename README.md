@@ -10,20 +10,20 @@ Instantly calculate **Sell Put / Sell Call** option ROI, manage a Wishlist, and 
 
 ## Features
 
-| Feature | Detail |
-|---|---|
-| **Auto-scan** | Detects bid/strike/symbol from broker pages on popup open |
-| **Vector UI** | High-fidelity vector icons for tabs, status banners, and action buttons |
-| **Price & Premium** | Split input for **Actual Price ($)** vs. **Total Premium ($)** (Auto-synced) |
-| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Actual ROI |
-| **DTE Hints** | Fast income (7-14d), Sweet spot (30-45d), More premium (60d+) |
-| **ROI Goal** | Default 2.5% — customisable in Settings |
-| **Wishlist** | Add symbols with full option details |
-| **Compact Mode** | Collapse UI to focus on ROI results while maintaining status info |
-| **Highlight** | Green highlight for symbols meeting ROI goal |
-| **Moneyness** | Displays OTM, ATM, ITM status and trade Risk Level |
-| **Export** | Download Wishlist as CSV with customisable filenames |
-| **Persistent** | Settings & Wishlist saved via `chrome.storage.local` |
+| Feature              | Detail                                                                       |
+|----------------------|------------------------------------------------------------------------------|
+| **Auto-scan**        | Detects bid/strike/symbol from broker pages on popup open                    |
+| **Vector UI**        | High-fidelity vector icons for tabs, status banners, and action buttons      |
+| **Price & Premium**  | Split input for **Actual Price ($)** vs. **Total Premium ($)** (Auto-synced) |
+| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Actual ROI                      |
+| **DTE Hints**        | Fast income (7-14d), Sweet spot (30-45d), More premium (60d+)                |
+| **ROI Goal**         | Default 2.5% — customisable in Settings                                      |
+| **Wishlist**         | Add symbols with full option details                                         |
+| **Compact Mode**     | Collapse UI to focus on ROI results while maintaining status info            |
+| **Highlight**        | Green highlight for symbols meeting ROI goal                                 |
+| **Moneyness**        | Displays OTM, ATM, ITM status and trade Risk Level                           |
+| **Export**           | Download Wishlist as CSV with customisable filenames                         |
+| **Persistent**       | Settings & Wishlist saved via `chrome.storage.local`                         |
 
 ---
 
@@ -44,10 +44,10 @@ The calculator automatically syncs the per-share price and total dollar amount:
 
 
 ### Moneyness Logic
-| Scenario | OTM (Lower Risk) | ATM (High Risk) | ITM (Very High Risk) |
-|---|---|---|---|
-| **Sell Put** | Strike < Stock | Difference ≤ 0.5% | Strike > Stock |
-| **Sell Call** | Strike > Stock | Difference ≤ 0.5% | Strike < Stock |
+| Scenario      | OTM (Lower Risk) | ATM (High Risk)   | ITM (Very High Risk) |
+|---------------|------------------|-------------------|----------------------|
+| **Sell Put**  | Strike < Stock   | Difference ≤ 0.5% | Strike > Stock       |
+| **Sell Call** | Strike > Stock   | Difference ≤ 0.5% | Strike < Stock       |
 
 **ATM Calculation:**
 `ATM Difference % = |Strike Price - Stock Price| ÷ Stock Price × 100`
@@ -81,11 +81,11 @@ This extension works out-of-the-box on **Chrome, Microsoft Edge, Brave, Opera**,
 ## Usage
 
 1. **Navigate** to an option chain on a supported broker
-2. **Click** the extension icon — fields auto-fill from the page
+2. **Click** the extension icon — fields autofill from the page
 3. **Adjust** bid, strike, premium, quantity as needed
 4. **Calculate** — ROI and breakdown display instantly
 5. **Add to Wishlist** — saves symbol with all details
-6. **Wishlist tab** — rows with ROI ≥ goal are highlighted green
+6. **Wishlist tab** — rows with ROI ≥ goal are highlighted in green
 7. **Export CSV** — downloads your full Wishlist
 8. **Compact Mode** — Click the "−" button to minimize the UI
 
@@ -93,13 +93,13 @@ This extension works out-of-the-box on **Chrome, Microsoft Edge, Brave, Opera**,
 
 ## Settings
 
-| Setting | Default | Description |
-|---|---|---|
-| Capital ($) | 10000 | Budget — warn if total capital required exceeds this |
-| ROI Goal | 2.5% | Highlight rows with Cash-secured/Covered ROI ≥ this |
-| IV Goal | 40% | Highlight rows with IV ≥ this |
-| Auto-scan on Open | On | Scan active tab when popup opens |
-| Download Filename | option_wishlist | Custom base name for CSV exports |
+| Setting           | Default         | Description                                          |
+|-------------------|-----------------|------------------------------------------------------|
+| Capital ($)       | 10000           | Budget — warn if total capital required exceeds this |
+| ROI Goal          | 2.5%            | Highlight rows with Cash-secured/Covered ROI ≥ this  |
+| IV Goal           | 40%             | Highlight rows with IV ≥ this                        |
+| Auto-scan on Open | On              | Scan active tab when popup opens                     |
+| Download Filename | option_wishlist | Custom base name for CSV exports                     |
 
 ---
 
@@ -111,7 +111,7 @@ This extension operates **100% locally**. All option data, settings, and your Wi
 
 ## Support & Feedback
 
-If you encounter any bugs with the IBKR data detection, or have feature requests, please reach out to: **V. Zang, Loo** (vzangloo@7mayday.com).
+If you encounter any bugs with the IBKR data detection or have feature requests, please reach out to: **V. Zang, Loo** (vzangloo@7mayday.com).
 
 ---
 
