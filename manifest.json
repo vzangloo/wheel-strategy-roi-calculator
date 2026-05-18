@@ -17,20 +17,7 @@
   "action": {
     "default_title": "Toggle Option Wheel Strategy ROI Calculator"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "css": [
-        "overlay.css"
-      ],
-      "run_at": "document_idle"
-    }
-  ],
+
   "web_accessible_resources": [
     {
       "resources": [
