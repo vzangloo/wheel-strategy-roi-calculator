@@ -5,6 +5,12 @@
 (function () {
   "use strict";
 
+  // Clean up any orphaned overlay from a previous extension load
+  const orphan = document.getElementById("__option-roi-root__");
+  if (orphan) orphan.remove();
+  const orphanToast = document.getElementById("__option-roi-toast__");
+  if (orphanToast) orphanToast.remove();
+
   // ── Selectors ───────────────────────────────────────────────────────────
   const SEL = {
     symbol: "#cp-ib-app-main-content > div._col.flex.grow.border-start > section > div > div.quote.numeric.insetx-16.after-16.quote-v.before-16 > div > div.quote-symprice > div.flex-fixed > h1 > div.quote-symbol > div",
@@ -143,7 +149,9 @@
       if (existing) { existing.classList.remove("oi-hidden"); return; }
 
       await this.settings.load();
-      if (this.settings.isClosed) return;
+      // Always show on boot — script is only injected via icon click
+      this.settings.isClosed = false;
+      this.settings.setClosed(false);
 
       this.inject();
       this.setupObservers();
@@ -415,8 +423,12 @@
       // ── Header Controls ────────────────────────────────────────────────
       this.g("oiClose").addEventListener("click", () => {
         this.settings.setClosed(true);
-        if (this.toast) this.toast.remove();
+        if (this.toast) { this.toast.remove(); this.toast = null; }
         this.root.remove();
+        this.root = null;
+        this._pollIntervals.forEach(id => clearInterval(id));
+        this._pollIntervals = [];
+        if (this._mutationObserver) { this._mutationObserver.disconnect(); this._mutationObserver = null; }
       });
 
       this.g("oiThemeBtn").addEventListener("click", () => {
@@ -986,10 +998,16 @@
       if (!this.settings.isContextValid()) return;
       chrome.runtime.onMessage.addListener(msg => {
         if (msg.type === "TOGGLE_OVERLAY") {
+          this.settings.isClosed = false;
           this.settings.setClosed(false);
           const r = document.getElementById("__option-roi-root__");
-          if (r) r.classList.remove("oi-hidden");
-          else this.boot();
+          if (r) {
+            r.classList.remove("oi-hidden");
+          } else {
+            this.inject();
+            this.setupObservers();
+            this.setupPollers();
+          }
         }
       });
     }
