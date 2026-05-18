@@ -17,8 +17,8 @@
     stockPrice: "#cp-ib-app-main-content > div._col.flex.grow.border-start > section > div > div.quote.numeric.insetx-16.after-16.quote-v.before-16 > div > div.quote-symprice > div.quote-price.text-semibold.lh-sm.fs2 > span:nth-child(1)",
     bidPut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-puts > div:nth-child(1) > div.opt-lbl-col-body.border-top.border-bottom > div.isSell.isBidAsk.bg-sell.opt-text-bold > div:nth-child(1)",
     bidCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-calls > div:nth-child(1) > div.opt-lbl-col-body.border-top.border-bottom > div.isSell.isBidAsk.bg-sell.opt-text-bold > div:nth-child(1)",
-    totalBidPut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-puts > div:nth-child(1) > div.opt-lbl-col-body.border-top.border-bottom > div.isSell.isBidAsk.bg-sell.opt-text-bold > div:nth-child(2)",
-    totalBidCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-calls > div:nth-child(1) > div.opt-lbl-col-body.border-top.border-bottom > div.isSell.isBidAsk.bg-sell.opt-text-bold > div:nth-child(2)",
+    askPricePut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-puts > div:nth-child(2) > div.opt-lbl-col-body.border-top.border-bottom > div.isBuy.isBidAsk.bg15-sell.border-sell > div.bg-delayed",
+    askPriceCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-calls > div:nth-child(2) > div.opt-lbl-col-body.border-top.border-bottom > div.isBuy.isBidAsk.bg15-sell.border-sell > div.bg-delayed",
     strikePut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-strikes.bg-gray10.fs7.text-medium > div > div.opt-bg-put-sell.border-sell.border-start",
     strikeCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-strikes.bg-gray10.fs7.text-medium > div > div.opt-bg-call-sell.border-sell.border-end",
     premium: "#orderTicketSellTabPanel > div > div.order-ticket__sidebar > div:nth-child(1) > div > div:nth-child(2) > div > table tr:nth-child(3) > td.numeric.ellipsis",
@@ -83,7 +83,7 @@
       this.etf = "No";
       this.wishlist = [];
       this.pos = { x: null, y: null };
-      this.lastValues = { symbol: "", bid: "", strike: "", premium: "0", price: "0", qty: "1", dte: "", stockPrice: "", iv: "", totalBid: "" };
+      this.lastValues = { symbol: "", bid: "", strike: "", premium: "0", price: "0", qty: "1", dte: "", stockPrice: "", iv: "", askPrice: "" };
       this.isClosed = false;
       this.isMinimized = false;
       this.csvName = "option_wishlist";
@@ -241,18 +241,26 @@
     <div class="oi-field oi-field-pair">
       <div class="oi-pair">
         <div class="oi-pair-item">
-          <label class="oi-lbl">Bid Price ($)</label>
+          <label class="oi-lbl">Bid ($)</label>
           <input class="oi-inp" type="number" id="oiBid" placeholder="0.00" step="0.01" min="0"/>
         </div>
         <div class="oi-pair-item">
-          <label class="oi-lbl">Total Bid Asking</label>
-          <input class="oi-inp" type="number" id="oiTotalBid" placeholder="0.00" step="0.01" min="0"/>
+          <label class="oi-lbl">Ask ($)</label>
+          <input class="oi-inp" type="number" id="oiAskPrice" placeholder="0.00" step="0.01" min="0"/>
         </div>
       </div>
     </div>
-    <div class="oi-field">
-      <label class="oi-lbl" style="color:var(--accent);">Strike Price ($)</label>
-      <input class="oi-inp oi-strike-inp" type="number" id="oiStrike" placeholder="0.00" step="0.5" min="0"/>
+    <div class="oi-field oi-field-pair">
+      <div class="oi-pair">
+        <div class="oi-pair-item">
+          <label class="oi-lbl">Mid ($)</label>
+          <div class="oi-mid-value" id="oiMidPrice">0.00</div>
+        </div>
+        <div class="oi-pair-item">
+          <label class="oi-lbl" style="color:var(--accent);">Strike Price ($)</label>
+          <input class="oi-inp oi-strike-inp" type="number" id="oiStrike" placeholder="0.00" step="0.5" min="0"/>
+        </div>
+      </div>
     </div>
     <div class="oi-field oi-field-pair">
       <div class="oi-pair">
@@ -297,6 +305,7 @@
       <div class="oi-rrow"><span class="oi-rk">ROI Goals</span><div class="oi-goals" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;"><span class="oi-goal" id="oiGoalInd"></span><span class="oi-goal" id="oiGoalInd2"></span></div></div>
       <div class="oi-rrow"><span class="oi-rk">IV Goal</span><span class="oi-iv-goal-ind" id="oiIvGoalInd"></span></div>
       <div class="oi-rrow"><span class="oi-rk">Moneyness</span><span id="oiMoneyStatus" class="oi-money-badge">—</span></div>
+      <div class="oi-rrow"><span class="oi-rk">Spread %</span><span id="oiSpreadInd" class="oi-money-badge">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Capital Required</span><span class="oi-rv" id="oiCap">—</span></div>
     </div>
   </div>
@@ -472,12 +481,15 @@
       // ── Inputs & Calculation ───────────────────────────────────────────
       this.g("oiCalc").addEventListener("click", () => this.calculate());
 
-      const liveInputs = ["oiQty", "oiDte", "oiIV", "oiStockPrice", "oiTotalBid", "oiBid", "oiStrike", "oiSymbol"];
+      const liveInputs = ["oiQty", "oiDte", "oiIV", "oiStockPrice", "oiAskPrice", "oiBid", "oiStrike", "oiSymbol"];
       liveInputs.forEach(id => this.g(id).addEventListener("input", () => {
         if (id === "oiBid" || id === "oiStrike") {
           // Reset premium/price if bid/strike change manually
-          this.g("oiPremium").value = "0";
-          this.g("oiPrice").value = "0";
+          this.g("oiPremium").value = "0.00";
+          this.g("oiPrice").value = "0.00";
+        }
+        if (id === "oiBid" || id === "oiAskPrice") {
+          this.updateMidPrice();
         }
         this.saveValues();
         this.calculate();
@@ -595,25 +607,27 @@
 
     restoreValues() {
       const v = this.settings.lastValues;
+      const fmt2 = val => parseFloat(val || 0).toFixed(2);
       this.g("oiSymbol").value = v.symbol || "";
-      this.g("oiBid").value = v.bid || "";
-      this.g("oiStrike").value = v.strike || "";
-      this.g("oiPremium").value = v.premium || "0";
-      this.g("oiPrice").value = v.price || "0";
+      this.g("oiBid").value = fmt2(v.bid);
+      this.g("oiStrike").value = fmt2(v.strike);
+      this.g("oiPremium").value = v.premium ? fmt2(v.premium) : "0.00";
+      this.g("oiPrice").value = v.price ? fmt2(v.price) : "0.00";
       this.g("oiQty").value = v.qty || "1";
-      this.g("oiStockPrice").value = v.stockPrice || "";
-      this.g("oiIV").value = v.iv || "";
-      this.g("oiTotalBid").value = v.totalBid || "";
+      this.g("oiStockPrice").value = v.stockPrice ? fmt2(v.stockPrice) : "";
+      this.g("oiIV").value = v.iv ? fmt2(v.iv) : "";
+      this.g("oiAskPrice").value = fmt2(v.askPrice);
       this.g("oiDte").value = v.dte || "";
       this.root.querySelectorAll(".oi-tog").forEach(b => b.classList.toggle("active", b.dataset.type === this.settings.optionType));
       this.root.querySelectorAll(".oi-tog-etf").forEach(b => b.classList.toggle("active", b.dataset.etf === this.settings.etf));
+      this.updateMidPrice();
     }
 
     saveValues() {
       this.settings.lastValues = {
         symbol: this.g("oiSymbol").value, bid: this.g("oiBid").value, strike: this.g("oiStrike").value,
         premium: this.g("oiPremium").value, price: this.g("oiPrice").value, qty: this.g("oiQty").value,
-        stockPrice: this.g("oiStockPrice").value, iv: this.g("oiIV").value, totalBid: this.g("oiTotalBid").value,
+        stockPrice: this.g("oiStockPrice").value, iv: this.g("oiIV").value, askPrice: this.g("oiAskPrice").value,
         dte: this.g("oiDte").value,
       };
       this.settings.persist();
@@ -645,6 +659,27 @@
 
       this.renderResult(this.lastCalc);
       return this.lastCalc;
+    }
+
+    updateMidPrice() {
+      const bid = Utils.safe(this.g("oiBid").value);
+      const ask = Utils.safe(this.g("oiAskPrice").value);
+      const mid = (bid + ask) / 2;
+      this.g("oiMidPrice").textContent = mid.toFixed(2);
+
+      // Spread liquidity indicator
+      const spread = mid > 0 ? ((ask - bid) / mid) * 100 : 0;
+      const ind = this.g("oiSpreadInd");
+      if (ind) {
+        let label, cls;
+        if (mid <= 0 || (bid <= 0 && ask <= 0)) { label = "—"; cls = ""; }
+        else if (spread < 5) { label = spread.toFixed(2) + "% · Very Liquid (Good)"; cls = "otm"; }
+        else if (spread < 10) { label = spread.toFixed(2) + "% · Okay"; cls = ""; }
+        else if (spread < 20) { label = spread.toFixed(2) + "% · Tradable (Careful)"; cls = "atm"; }
+        else { label = spread.toFixed(2) + "% · Illiquid (Avoid)"; cls = "itm"; }
+        ind.textContent = label;
+        ind.className = "oi-money-badge " + cls;
+      }
     }
 
     renderResult(r) {
@@ -722,7 +757,7 @@
         qty: r.qty, roi1: r.roi1, roi2: r.roi2, cap: r.cap,
         iv: parseFloat(this.g("oiIV").value) || null,
         stockPrice: parseFloat(this.g("oiStockPrice").value) || null,
-        totalBid: parseFloat(this.g("oiTotalBid").value) || null,
+        askPrice: parseFloat(this.g("oiAskPrice").value) || null,
         dte: parseInt(this.g("oiDte").value) || null,
         selected: false, addedAt: new Date().toLocaleDateString(),
       };
@@ -747,7 +782,7 @@
         const ivHit = e.iv != null && (+e.iv) >= this.settings.ivGoal;
         const fullHit = roiHit && (e.iv == null || ivHit);
         const rowCls = fullHit ? "oi-hit" : roiHit ? "oi-hit-roi" : ivHit ? "oi-hit-iv" : "";
-        const ivBadge = e.iv != null ? `<span class="oi-iv-chip ${ivHit ? "hit" : ""}">${(+e.iv).toFixed(1)}%</span>` : `<span class="oi-iv-chip">—</span>`;
+        const ivBadge = e.iv != null ? `<span class="oi-iv-chip ${ivHit ? "hit" : ""}">${(+e.iv).toFixed(2)}%</span>` : `<span class="oi-iv-chip">—</span>`;
 
         rows += `<tr class="${rowCls}" data-id="${e.id}">
           <td><input type="checkbox" class="oi-row-chk" data-chk="${e.id}" ${e.selected ? "checked" : ""}></td>
@@ -758,7 +793,7 @@
           <td class="${e.type === "CALL" ? "oi-call" : "oi-put"}">${e.type === "CALL" ? "Call" : "Put"}</td>
           <td class="oi-strike-col">$${(+e.strike).toFixed(2)}</td>
           <td>$${(+e.bid).toFixed(2)}</td>
-          <td>${e.totalBid != null ? (+e.totalBid).toLocaleString("en-US", { minimumDigits: 0, maximumFractionDigits: 2 }) : "—"}</td>
+          <td>${e.askPrice != null ? "$" + (+e.askPrice).toFixed(2) : "—"}</td>
           <td class="oi-roi-cell ${roiHit ? "hit" : "miss"}">${(+e.roi1).toFixed(2)}%</td>
           <td>${e.dte != null ? e.dte + "d" : "—"}</td>
           <td>${e.qty != null ? e.qty : 1}</td>
@@ -776,7 +811,7 @@
         <thead><tr>
           <th><input type="checkbox" data-chkall="1" ${allSelected ? "checked" : ""}></th>
           <th>Sym</th><th>ETF</th><th>Stock$</th><th>IV</th><th>Type</th><th class="oi-strike-col">Strike</th><th>Bid</th>
-          <th>Ttl Ask</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Act Price</th><th class="oi-prem-col">Premium</th><th>Act ROI</th><th>Capital</th><th>Date</th><th></th>
+          <th>Ask</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Act Price</th><th class="oi-prem-col">Premium</th><th>Act ROI</th><th>Capital</th><th>Date</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
@@ -819,8 +854,8 @@
       const rows = this.settings.wishlist.map(e => ({
         "Selected": e.selected ? "Yes" : "No", "Symbol": e.symbol, "ETF": e.etf || "No",
         "Stock Price ($)": e.stockPrice != null ? parseFloat((+e.stockPrice).toFixed(2)) : "",
-        "IV (%)": e.iv != null ? +e.iv : "", "Type": e.type, "Strike ($)": parseFloat((+e.strike).toFixed(2)),
-        "Bid ($)": parseFloat((+e.bid).toFixed(2)), "Total Bid Asking": e.totalBid != null ? +e.totalBid : 0,
+        "IV (%)": e.iv != null ? parseFloat((+e.iv).toFixed(2)) : "", "Type": e.type, "Strike ($)": parseFloat((+e.strike).toFixed(2)),
+        "Bid ($)": parseFloat((+e.bid).toFixed(2)), "Ask Price ($)": e.askPrice != null ? parseFloat((+e.askPrice).toFixed(2)) : "",
         "ROI (%)": parseFloat((+e.roi1).toFixed(2)), "DTE": e.dte || "", "Qty": e.qty,
         "Actual Price ($)": e.price || "", "Premium ($)": parseFloat((+e.premium).toFixed(2)),
         "Actual ROI (%)": parseFloat((+e.roi2).toFixed(2)), "Capital ($)": parseFloat((+e.cap).toFixed(2)), "Added": e.addedAt,
@@ -843,7 +878,7 @@
       else if (pv != null) type = "PUT";
 
       const strike = type === "CALL" ? Utils.nEl(Utils.qs(SEL.strikeCall)) : Utils.nEl(Utils.qs(SEL.strikePut));
-      const totalBid = type === "CALL" ? Utils.nEl(Utils.qs(SEL.totalBidCall)) : Utils.nEl(Utils.qs(SEL.totalBidPut));
+      const askPrice = type === "CALL" ? Utils.nEl(Utils.qs(SEL.askPriceCall)) : Utils.nEl(Utils.qs(SEL.askPricePut));
       const lQtyEl = Utils.qs(SEL.limitQty);
 
       return {
@@ -851,7 +886,7 @@
         symbol: Utils.txt(Utils.qs(SEL.symbol)),
         stockPrice: Utils.nEl(Utils.qs(SEL.stockPrice)),
         bid: (type === "CALL" ? cv : pv),
-        type, strike, totalBid,
+        type, strike, askPrice,
         premium: this.detectPremium(),
         qty: lQtyEl ? (parseInt(lQtyEl.value) || null) : null,
         iv: this.parseIV(Utils.qs(SEL.iv)),
@@ -906,7 +941,7 @@
     }
 
     applyScannedData(data) {
-      if (!data) return;
+      if (!data || !this.root) return;
       if (data.symbol) this.g("oiSymbol").value = data.symbol.toUpperCase();
       if (data.type) {
         this.settings.optionType = data.type;
@@ -919,14 +954,15 @@
 
       const newBid = data.bid || 0;
       const prevBid = parseFloat(this.g("oiBid").value) || 0;
-      this.g("oiBid").value = newBid;
-      this.g("oiStrike").value = data.strike || 0;
-      this.g("oiTotalBid").value = data.totalBid || 0;
+      this.g("oiBid").value = (+newBid).toFixed(2);
+      this.g("oiStrike").value = (+(data.strike || 0)).toFixed(2);
+      this.g("oiAskPrice").value = (+(data.askPrice || 0)).toFixed(2);
+      this.updateMidPrice();
 
       if (newBid !== prevBid) {
-        this.g("oiPremium").value = "0"; this.g("oiPrice").value = "0";
+        this.g("oiPremium").value = "0.00"; this.g("oiPrice").value = "0.00";
       } else if (data.premium != null) {
-        this.g("oiPremium").value = data.premium;
+        this.g("oiPremium").value = (+data.premium).toFixed(2);
         const qty = parseInt(this.g("oiQty").value) || 1;
         this.g("oiPrice").value = (data.premium / (100 * qty)).toFixed(2);
       }
@@ -937,11 +973,11 @@
         if (p > 0) this.g("oiPrice").value = (p / (100 * data.qty)).toFixed(2);
       }
 
-      if (data.stockPrice != null) this.g("oiStockPrice").value = data.stockPrice;
-      if (data.iv != null) this.g("oiIV").value = data.iv;
+      if (data.stockPrice != null) this.g("oiStockPrice").value = (+data.stockPrice).toFixed(2);
+      if (data.iv != null) this.g("oiIV").value = (+data.iv).toFixed(2);
       if (data.dte != null) this.g("oiDte").value = data.dte;
 
-      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(1) + "%" : ""].filter(Boolean);
+      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(2) + "%" : ""].filter(Boolean);
       this.g("oiBannerMsg").textContent = data.detected ? parts.join(" · ") : "No symbol detected.";
       this.g("oiBanner").classList.remove("oi-hidden");
 
@@ -951,7 +987,7 @@
     setupObservers() {
       let t = null;
       this._mutationObserver = new MutationObserver(() => {
-        if (!this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
+        if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         clearTimeout(t);
         t = setTimeout(() => { if (Utils.qs(SEL.symbol) || Utils.qs(SEL.bidPut)) this.applyScannedData(this.scanPage()); }, 400);
       });
@@ -959,29 +995,29 @@
     }
 
     setupPollers() {
-      // Fast poll (200ms) for bid/strike/totalBid
+      // Fast poll (200ms) for bid/strike/askPrice
       this._pollIntervals.push(setInterval(() => {
-        if (this.root.classList.contains("oi-hidden")) return;
+        if (!this.root || this.root.classList.contains("oi-hidden")) return;
         const fpv = Utils.nEl(Utils.qs(SEL.bidPut)), fcv = Utils.nEl(Utils.qs(SEL.bidCall));
         const fBid = (this.settings.optionType === "CALL" ? fcv : fpv);
         const fStrike = (this.settings.optionType === "CALL" ? Utils.nEl(Utils.qs(SEL.strikeCall)) : Utils.nEl(Utils.qs(SEL.strikePut)));
-        const fTotal = (this.settings.optionType === "CALL" ? Utils.nEl(Utils.qs(SEL.totalBidCall)) : Utils.nEl(Utils.qs(SEL.totalBidPut)));
+        const fAsk = (this.settings.optionType === "CALL" ? Utils.nEl(Utils.qs(SEL.askPriceCall)) : Utils.nEl(Utils.qs(SEL.askPricePut)));
 
         if (fBid != null && fBid !== parseFloat(this.g("oiBid").value)) {
-          this.g("oiBid").value = fBid; this.g("oiPremium").value = "0"; this.g("oiPrice").value = "0";
-          this.saveValues(); this.calculate();
+          this.g("oiBid").value = fBid.toFixed(2); this.g("oiPremium").value = "0.00"; this.g("oiPrice").value = "0.00";
+          this.updateMidPrice(); this.saveValues(); this.calculate();
         }
         if (fStrike != null && fStrike !== parseFloat(this.g("oiStrike").value)) {
-          this.g("oiStrike").value = fStrike; this.saveValues(); this.calculate();
+          this.g("oiStrike").value = fStrike.toFixed(2); this.saveValues(); this.calculate();
         }
-        if (fTotal != null && fTotal !== parseFloat(this.g("oiTotalBid").value)) {
-          this.g("oiTotalBid").value = fTotal; this.saveValues(); this.calculate();
+        if (fAsk != null && fAsk !== parseFloat(this.g("oiAskPrice").value)) {
+          this.g("oiAskPrice").value = fAsk.toFixed(2); this.updateMidPrice(); this.saveValues(); this.calculate();
         }
       }, 200));
 
       // Slow poll (1000ms) for DTE and Qty
       this._pollIntervals.push(setInterval(() => {
-        if (this.root.classList.contains("oi-hidden")) return;
+        if (!this.root || this.root.classList.contains("oi-hidden")) return;
         const days = this.detectDte();
         if (days != null && days !== parseInt(this.g("oiDte").value)) {
           this.g("oiDte").value = days; this.saveValues(); this.calculate();

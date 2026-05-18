@@ -409,6 +409,23 @@
   font-weight: 600 !important;
 }
 
+/* MID Price Display */
+#__option-roi-root__ .oi-mid-value {
+  font-family: var(--mono) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: var(--text) !important;
+  padding: 7px 0 !important;
+  line-height: 1.4 !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+#__option-roi-root__ #oiMidPrice {
+  text-align: center !important;
+}
+
 #__option-roi-root__.oi-light .oi-strike-inp {
   color: var(--bg) !important;
 }
