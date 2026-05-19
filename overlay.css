@@ -1495,6 +1495,9 @@
 #__option-roi-root__.oi-minimized .oi-infobar {
   margin: 5px 12px 2px !important;
   width: auto !important;
+  font-size: 13px !important;
+  white-space: normal !important;
+  overflow: visible !important;
 }
 
 #__option-roi-root__.oi-minimized #oi-tab-calc {

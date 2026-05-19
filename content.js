@@ -1012,7 +1012,7 @@
       if (data.dte != null) this.g("oiDte").value = data.dte;
 
       const midVal = this.g("oiMidPrice") ? this.g("oiMidPrice").textContent : "0.00";
-      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(2) + "%" : "", "Mid $" + midVal].filter(Boolean);
+      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(2) + "%" : "", "Mid\u00A0$" + midVal].filter(Boolean);
       this.g("oiBannerMsg").textContent = data.detected ? parts.join(" · ") : "No symbol detected.";
       this.g("oiBanner").classList.remove("oi-hidden");
 
