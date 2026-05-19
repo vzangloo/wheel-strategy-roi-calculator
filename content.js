@@ -17,8 +17,8 @@
     stockPrice: "#cp-ib-app-main-content > div._col.flex.grow.border-start > section > div > div.quote.numeric.insetx-16.after-16.quote-v.before-16 > div > div.quote-symprice > div.quote-price.text-semibold.lh-sm.fs2 > span:nth-child(1)",
     bidPut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-puts > div:nth-child(1) > div.opt-lbl-col-body.border-top.border-bottom > div.isSell.isBidAsk.bg-sell.opt-text-bold > div:nth-child(1)",
     bidCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-calls > div:nth-child(1) > div.opt-lbl-col-body.border-top.border-bottom > div.isSell.isBidAsk.bg-sell.opt-text-bold > div:nth-child(1)",
-    askPricePut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-puts > div:nth-child(2) > div.opt-lbl-col-body.border-top.border-bottom > div.isBuy.isBidAsk.bg15-sell.border-sell > div.bg-delayed",
-    askPriceCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-calls > div:nth-child(2) > div.opt-lbl-col-body.border-top.border-bottom > div.isBuy.isBidAsk.bg15-sell.border-sell > div.bg-delayed",
+    askPricePut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-puts > div:nth-child(2) > div.opt-lbl-col-body.border-top.border-bottom > div.isBuy.isBidAsk.bg15-sell.border-sell > div:nth-child(1)",
+    askPriceCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-calls > div:nth-child(2) > div.opt-lbl-col-body.border-top.border-bottom > div.isBuy.isBidAsk.bg15-sell.border-sell > div:nth-child(1)",
     strikePut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-strikes.bg-gray10.fs7.text-medium > div > div.opt-bg-put-sell.border-sell.border-start",
     strikeCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-strikes.bg-gray10.fs7.text-medium > div > div.opt-bg-call-sell.border-sell.border-end",
     premium: "#orderTicketSellTabPanel > div > div.order-ticket__sidebar > div:nth-child(1) > div > div:nth-child(2) > div > table tr:nth-child(3) > td.numeric.ellipsis",
@@ -277,7 +277,7 @@
     <div class="oi-field oi-field-pair">
       <div class="oi-pair">
         <div class="oi-pair-item">
-          <label class="oi-lbl" style="color:var(--gold);">Actual Price ($)</label>
+          <label class="oi-lbl" style="color:var(--gold);">Sell Price ($)</label>
           <input class="oi-inp" type="number" id="oiPrice" placeholder="0.00" step="0.01" min="0"/>
         </div>
         <div class="oi-pair-item">
@@ -297,7 +297,7 @@
       <div class="oi-roi-divider"></div>
       <div class="oi-roi-block">
         <div class="oi-roi-num oi-roi2" id="oiRoi2">—</div>
-        <div class="oi-roi-lbl" id="oiRoi2Lbl">Actual ROI</div>
+        <div class="oi-roi-lbl" id="oiRoi2Lbl">Sell ROI</div>
         <div class="oi-roi-sub" id="oiRoi2Sub">prem ÷ strike</div>
       </div>
     </div>
@@ -329,8 +329,12 @@
   </div>
   <div id="oiWlBody"></div>
   <div class="oi-cap-bar">
-    <span class="oi-cap-bar-lbl">Total Capital required:</span>
+    <span class="oi-cap-bar-lbl">Capital:</span>
     <span class="oi-cap-bar-val" id="oiCapTotal">—</span>
+    <span class="oi-cap-bar-lbl" style="margin-left:12px!important;">Premium:</span>
+    <span class="oi-cap-bar-val" id="oiPremTotal">—</span>
+    <span class="oi-cap-bar-lbl" style="margin-left:12px!important;">ROI:</span>
+    <span class="oi-cap-bar-val" id="oiTotalRoi">—</span>
     <span class="oi-cap-bar-hint" id="oiCapHint">(tick rows)</span>
   </div>
   <div class="oi-legend">
@@ -375,8 +379,8 @@
     <h3>Formulas</h3>
     <div class="oi-formula-row"><span class="oi-formula-key">Cash-secured ROI (PUT)</span><span class="oi-formula-val">bid ÷ strike × 100 (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Covered ROI (CALL)</span><span class="oi-formula-val">bid ÷ stock × 100 (%)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Actual ROI (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Actual ROI (CALL)</span><span class="oi-formula-val">premium ÷ (stock × qty) (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Sell ROI (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Sell ROI (CALL)</span><span class="oi-formula-val">premium ÷ (stock × qty) (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Capital Required</span><span class="oi-formula-val">strike × 100 × qty</span></div>
   </div>
 </div>`;
@@ -564,11 +568,32 @@
         }
       });
 
+      let rmPendingId = null, rmTimer = null;
       wlBody.addEventListener("click", e => {
         const rmBtn = e.target.closest("[data-rm]");
         if (rmBtn) {
-          this.settings.wishlist = this.settings.wishlist.filter(x => x.id !== +rmBtn.dataset.rm);
-          this.settings.persist(); this.renderWl(); this.updateCnt(); this.showToast("Removed", "");
+          const id = +rmBtn.dataset.rm;
+          if (rmPendingId === id) {
+            // Second click — confirmed, delete
+            clearTimeout(rmTimer); rmPendingId = null;
+            this.settings.wishlist = this.settings.wishlist.filter(x => x.id !== id);
+            this.settings.persist(); this.renderWl(); this.updateCnt(); this.showToast("Removed", "");
+          } else {
+            // First click — show confirm state
+            if (rmPendingId != null) {
+              const prevBtn = wlBody.querySelector(`[data-rm="${rmPendingId}"]`);
+              if (prevBtn) { prevBtn.classList.remove("oi-rm-confirm"); prevBtn.textContent = ""; }
+              clearTimeout(rmTimer);
+            }
+            rmPendingId = id;
+            rmBtn.classList.add("oi-rm-confirm");
+            rmBtn.textContent = "Confirm?";
+            rmTimer = setTimeout(() => {
+              rmBtn.classList.remove("oi-rm-confirm");
+              rmBtn.textContent = "";
+              rmPendingId = null;
+            }, 3000);
+          }
         }
       });
 
@@ -758,6 +783,7 @@
         iv: parseFloat(this.g("oiIV").value) || null,
         stockPrice: parseFloat(this.g("oiStockPrice").value) || null,
         askPrice: parseFloat(this.g("oiAskPrice").value) || null,
+        midPrice: parseFloat(this.g("oiMidPrice").textContent) || null,
         dte: parseInt(this.g("oiDte").value) || null,
         selected: false, addedAt: new Date().toLocaleDateString(),
       };
@@ -794,6 +820,7 @@
           <td class="oi-strike-col">$${(+e.strike).toFixed(2)}</td>
           <td>$${(+e.bid).toFixed(2)}</td>
           <td>${e.askPrice != null ? "$" + (+e.askPrice).toFixed(2) : "—"}</td>
+          <td>${e.midPrice != null ? "$" + (+e.midPrice).toFixed(2) : "—"}</td>
           <td class="oi-roi-cell ${roiHit ? "hit" : "miss"}">${(+e.roi1).toFixed(2)}%</td>
           <td>${e.dte != null ? e.dte + "d" : "—"}</td>
           <td>${e.qty != null ? e.qty : 1}</td>
@@ -811,7 +838,7 @@
         <thead><tr>
           <th><input type="checkbox" data-chkall="1" ${allSelected ? "checked" : ""}></th>
           <th>Sym</th><th>ETF</th><th>Stock$</th><th>IV</th><th>Type</th><th class="oi-strike-col">Strike</th><th>Bid</th>
-          <th>Ask</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Act Price</th><th class="oi-prem-col">Premium</th><th>Act ROI</th><th>Capital</th><th>Date</th><th></th>
+          <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>Sell ROI</th><th>Capital</th><th>Date</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
@@ -821,12 +848,18 @@
     updateCapBar() {
       const sel = this.settings.wishlist.filter(e => e.selected);
       const total = sel.reduce((sum, e) => sum + Utils.safe(e.cap), 0);
-      const valEl = this.g("oiCapTotal"), warn = this.g("oiCapWarn");
+      const totalPrem = sel.reduce((sum, e) => sum + Utils.safe(e.premium), 0);
+      const totalRoi = total > 0 ? (totalPrem / total) * 100 : 0;
+      const valEl = this.g("oiCapTotal"), warn = this.g("oiCapWarn"), premEl = this.g("oiPremTotal"), roiEl = this.g("oiTotalRoi");
       if (valEl) {
         if (sel.length === 0) {
           valEl.textContent = "—"; warn.classList.remove("show");
+          if (premEl) premEl.textContent = "—";
+          if (roiEl) roiEl.textContent = "—";
         } else {
           valEl.textContent = Utils.fmt$(total);
+          if (premEl) premEl.textContent = Utils.fmt$(totalPrem);
+          if (roiEl) roiEl.textContent = totalRoi.toFixed(2) + "%";
           const over = total > this.settings.capital;
           warn.classList.toggle("show", over);
           if (over) this.g("oiCapWarnTxt").textContent = `Total Capital $${total.toLocaleString()} exceeds budget $${this.settings.capital.toLocaleString()} by $${(total - this.settings.capital).toLocaleString()}`;
@@ -856,9 +889,10 @@
         "Stock Price ($)": e.stockPrice != null ? parseFloat((+e.stockPrice).toFixed(2)) : "",
         "IV (%)": e.iv != null ? parseFloat((+e.iv).toFixed(2)) : "", "Type": e.type, "Strike ($)": parseFloat((+e.strike).toFixed(2)),
         "Bid ($)": parseFloat((+e.bid).toFixed(2)), "Ask Price ($)": e.askPrice != null ? parseFloat((+e.askPrice).toFixed(2)) : "",
+        "Mid Price ($)": e.midPrice != null ? parseFloat((+e.midPrice).toFixed(2)) : "",
         "ROI (%)": parseFloat((+e.roi1).toFixed(2)), "DTE": e.dte || "", "Qty": e.qty,
-        "Actual Price ($)": e.price || "", "Premium ($)": parseFloat((+e.premium).toFixed(2)),
-        "Actual ROI (%)": parseFloat((+e.roi2).toFixed(2)), "Capital ($)": parseFloat((+e.cap).toFixed(2)), "Added": e.addedAt,
+        "Sell Price ($)": e.price || "", "Premium ($)": parseFloat((+e.premium).toFixed(2)),
+        "Sell ROI (%)": parseFloat((+e.roi2).toFixed(2)), "Capital ($)": parseFloat((+e.cap).toFixed(2)), "Added": e.addedAt,
       }));
       const h = Object.keys(rows[0]);
       const csv = [h.join(","), ...rows.map(r => h.map(k => { const v = r[k]; return typeof v === "string" && v.includes(",") ? `"${v}"` : v; }).join(","))].join("\n");
