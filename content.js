@@ -103,14 +103,17 @@
 
     persist() {
       if (!this.isContextValid()) return;
-      chrome.storage.local.set({
-        wsCalcV5: {
-          roiGoal: this.roiGoal, ivGoal: this.ivGoal, capital: this.capital,
-          autoScan: this.autoScan, optionType: this.optionType, theme: this.theme, etf: this.etf,
-          wishlist: this.wishlist, pos: this.pos, lastValues: this.lastValues,
-          csvName: this.csvName,
-        }
-      });
+      if (this._persistTimer) clearTimeout(this._persistTimer);
+      this._persistTimer = setTimeout(() => {
+        chrome.storage.local.set({
+          wsCalcV5: {
+            roiGoal: this.roiGoal, ivGoal: this.ivGoal, capital: this.capital,
+            autoScan: this.autoScan, optionType: this.optionType, theme: this.theme, etf: this.etf,
+            wishlist: this.wishlist, pos: this.pos, lastValues: this.lastValues,
+            csvName: this.csvName, width: this.width,
+          }
+        });
+      }, 500);
     }
 
     setMinimized(min) {
@@ -306,7 +309,7 @@
       <div class="oi-rrow"><span class="oi-rk">IV Goal</span><span class="oi-iv-goal-ind" id="oiIvGoalInd"></span></div>
       <div class="oi-rrow"><span class="oi-rk">Moneyness</span><span id="oiMoneyStatus" class="oi-money-badge">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Spread %</span><span id="oiSpreadInd" class="oi-money-badge">—</span></div>
-      <div class="oi-rrow"><span class="oi-rk">Capital Required</span><span class="oi-rv" id="oiCap">—</span></div>
+      <div class="oi-rrow"><span class="oi-rk" id="oiCapLbl">Capital Required</span><span class="oi-rv" id="oiCap">—</span></div>
     </div>
   </div>
   <div class="oi-actions">
@@ -357,7 +360,7 @@
     <div class="oi-cfg-ctrl"><div class="oi-inp-wrap"><input class="oi-inp" type="number" id="oiIvGoalCfg" step="1" min="0" max="500"/><span>%</span></div></div>
   </div>
   <div class="oi-cfg-row">
-    <div><div class="oi-cfg-lbl">Auto-scan on Open</div><div class="oi-cfg-sub">Auto-detect IBKR page data</div></div>
+    <div><div class="oi-cfg-lbl">Auto-scan</div><div class="oi-cfg-sub">Automatically detect IBKR data. Disable to use Scan button only.</div></div>
     <div class="oi-cfg-ctrl"><label class="oi-chk-lbl"><input class="oi-chk" type="checkbox" id="oiAutoScan"/> Enabled</label></div>
   </div>
   <div class="oi-cfg-row">
@@ -373,7 +376,7 @@
   </div>
   <div class="oi-cfg-row">
     <div><div class="oi-cfg-lbl">Version</div></div>
-    <div class="oi-cfg-ctrl" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;">v5.1 · IBKR Wheel</div>
+    <div class="oi-cfg-ctrl" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;" id="oiVersion">IBKR Wheel</div>
   </div>
   <div class="oi-formula-note">
     <h3>Formulas</h3>
@@ -664,6 +667,11 @@
       this.g("oiIvGoalCfg").value = this.settings.ivGoal;
       this.g("oiAutoScan").checked = this.settings.autoScan;
       this.g("oiCsvNameCfg").value = this.settings.csvName || "option_wishlist";
+      try {
+        const ver = chrome.runtime.getManifest().version;
+        this.g("oiVersion").textContent = "v" + ver + " · IBKR Wheel";
+      } catch (e) {
+      }
     }
 
     calculate() {
@@ -744,6 +752,9 @@
       r1.textContent = Utils.pct(r.roi1); r1.className = "oi-roi-num " + (hit1 ? "hit" : r.roi1 > 0 ? "pos" : "");
       r2.textContent = Utils.pct(r.roi2); r2.className = "oi-roi-num oi-roi2 " + (hit2 ? "hit" : r.roi2 > 0 ? "pos" : "");
       cap.textContent = Utils.fmt$(r.cap);
+
+      const capLbl = g("oiCapLbl");
+      if (capLbl) capLbl.textContent = this.settings.optionType === "CALL" ? "Capital Held" : "Capital Required";
 
       g("oiRoi1Lbl").textContent = strategy.label;
       g("oiRoi1Sub").textContent = strategy.formula;
@@ -888,9 +899,12 @@
         "Selected": e.selected ? "Yes" : "No", "Symbol": e.symbol, "ETF": e.etf || "No",
         "Stock Price ($)": e.stockPrice != null ? parseFloat((+e.stockPrice).toFixed(2)) : "",
         "IV (%)": e.iv != null ? parseFloat((+e.iv).toFixed(2)) : "", "Type": e.type, "Strike ($)": parseFloat((+e.strike).toFixed(2)),
-        "Bid ($)": parseFloat((+e.bid).toFixed(2)), "Ask Price ($)": e.askPrice != null ? parseFloat((+e.askPrice).toFixed(2)) : "",
-        "Mid Price ($)": e.midPrice != null ? parseFloat((+e.midPrice).toFixed(2)) : "",
-        "ROI (%)": parseFloat((+e.roi1).toFixed(2)), "DTE": e.dte || "", "Qty": e.qty,
+        "Bid ($)": parseFloat((+e.bid).toFixed(2)),
+        "Ask ($)": e.askPrice != null ? parseFloat((+e.askPrice).toFixed(2)) : "",
+        "Mid ($)": e.midPrice != null ? parseFloat((+e.midPrice).toFixed(2)) : "",
+        "ROI (%)": parseFloat((+e.roi1).toFixed(2)),
+        "DTE (Days)": e.dte || "",
+        "Qty": e.qty,
         "Sell Price ($)": e.price || "", "Premium ($)": parseFloat((+e.premium).toFixed(2)),
         "Sell ROI (%)": parseFloat((+e.roi2).toFixed(2)), "Capital ($)": parseFloat((+e.cap).toFixed(2)), "Added": e.addedAt,
       }));
@@ -907,9 +921,11 @@
     // ── Scanning Logic ──────────────────────────────────────────────────
     scanPage() {
       const pv = Utils.nEl(Utils.qs(SEL.bidPut)), cv = Utils.nEl(Utils.qs(SEL.bidCall));
-      let type = "PUT";
+      // Respect user's current option type selection
+      let type = this.settings.optionType;
+      // Only override if one side is clearly missing
       if (pv == null && cv != null) type = "CALL";
-      else if (pv != null) type = "PUT";
+      else if (cv == null && pv != null) type = "PUT";
 
       const strike = type === "CALL" ? Utils.nEl(Utils.qs(SEL.strikeCall)) : Utils.nEl(Utils.qs(SEL.strikePut));
       const askPrice = type === "CALL" ? Utils.nEl(Utils.qs(SEL.askPriceCall)) : Utils.nEl(Utils.qs(SEL.askPricePut));
@@ -1012,7 +1028,9 @@
       if (data.dte != null) this.g("oiDte").value = data.dte;
 
       const midVal = this.g("oiMidPrice") ? this.g("oiMidPrice").textContent : "0.00";
-      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(2) + "%" : "", "Mid\u00A0$" + midVal].filter(Boolean);
+      const bidVal = this.g("oiBid") ? parseFloat(this.g("oiBid").value || 0).toFixed(2) : "0.00";
+      const askVal = this.g("oiAskPrice") ? parseFloat(this.g("oiAskPrice").value || 0).toFixed(2) : "0.00";
+      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(2) + "%" : "", "Bid\u00A0$" + bidVal, "Ask\u00A0$" + askVal, "Mid\u00A0$" + midVal].filter(Boolean);
       this.g("oiBannerMsg").textContent = data.detected ? parts.join(" · ") : "No symbol detected.";
       this.g("oiBanner").classList.remove("oi-hidden");
 
@@ -1021,22 +1039,38 @@
 
     setupObservers() {
       let t = null;
-      this._mutationObserver = new MutationObserver(() => {
+      let scanning = false;
+      this._mutationObserver = new MutationObserver((mutations) => {
         if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
+        // Ignore mutations from our own overlay
+        const fromSelf = mutations.every(m => this.root.contains(m.target));
+        if (fromSelf) return;
+        if (scanning) return;
         clearTimeout(t);
-        t = setTimeout(() => { if (Utils.qs(SEL.symbol) || Utils.qs(SEL.bidPut)) this.applyScannedData(this.scanPage()); }, 400);
+        t = setTimeout(() => {
+          if (scanning) return;
+          scanning = true;
+          try {
+            if (Utils.qs(SEL.symbol) || Utils.qs(SEL.bidPut)) this.applyScannedData(this.scanPage());
+          } finally {
+            scanning = false;
+          }
+        }, 400);
       });
       this._mutationObserver.observe(document.body, { childList: true, subtree: true });
     }
 
     setupPollers() {
-      // Fast poll (200ms) for bid/strike/askPrice
+      // Fast poll (300ms) for bid/strike/askPrice
       this._pollIntervals.push(setInterval(() => {
-        if (!this.root || this.root.classList.contains("oi-hidden")) return;
+        if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         const fpv = Utils.nEl(Utils.qs(SEL.bidPut)), fcv = Utils.nEl(Utils.qs(SEL.bidCall));
         const fBid = (this.settings.optionType === "CALL" ? fcv : fpv);
         const fStrike = (this.settings.optionType === "CALL" ? Utils.nEl(Utils.qs(SEL.strikeCall)) : Utils.nEl(Utils.qs(SEL.strikePut)));
         const fAsk = (this.settings.optionType === "CALL" ? Utils.nEl(Utils.qs(SEL.askPriceCall)) : Utils.nEl(Utils.qs(SEL.askPricePut)));
+
+        // Only update if values actually changed (don't reset to 0)
+        if (fBid == null && fStrike == null) return;
 
         if (fBid != null && fBid !== parseFloat(this.g("oiBid").value)) {
           this.g("oiBid").value = fBid.toFixed(2); this.g("oiPremium").value = "0.00"; this.g("oiPrice").value = "0.00";
@@ -1048,11 +1082,11 @@
         if (fAsk != null && fAsk !== parseFloat(this.g("oiAskPrice").value)) {
           this.g("oiAskPrice").value = fAsk.toFixed(2); this.updateMidPrice(); this.saveValues(); this.calculate();
         }
-      }, 200));
+      }, 300));
 
-      // Slow poll (1000ms) for DTE and Qty
+      // Slow poll (2000ms) for DTE and Qty
       this._pollIntervals.push(setInterval(() => {
-        if (!this.root || this.root.classList.contains("oi-hidden")) return;
+        if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         const days = this.detectDte();
         if (days != null && days !== parseInt(this.g("oiDte").value)) {
           this.g("oiDte").value = days; this.saveValues(); this.calculate();
@@ -1062,7 +1096,7 @@
         if (qty != null && qty !== parseInt(this.g("oiQty").value)) {
           this.g("oiQty").value = qty; this.saveValues(); this.calculate();
         }
-      }, 1000));
+      }, 2000));
     }
 
     setupMessaging() {

@@ -131,13 +131,13 @@ This extension works out-of-the-box on **Chrome, Microsoft Edge, Brave, Opera**,
 
 ## Settings
 
-| Setting           | Default         | Description                                          |
-|-------------------|-----------------|------------------------------------------------------|
-| Capital ($)       | 10000           | Budget — warn if total capital required exceeds this |
-| ROI Goal          | 2.5%            | Highlight rows with Cash-secured/Covered ROI ≥ this  |
-| IV Goal           | 40%             | Highlight rows with IV ≥ this                        |
-| Auto-scan on Open | On              | Scan active tab when popup opens                     |
-| Download Filename | option_wishlist | Custom base name for CSV exports                     |
+| Setting           | Default         | Description                                             |
+|-------------------|-----------------|---------------------------------------------------------|
+| Capital ($)       | 10000           | Budget — warn if total capital required exceeds this    |
+| ROI Goal          | 2.5%            | Highlight rows with Cash-secured/Covered ROI ≥ this     |
+| IV Goal           | 40%             | Highlight rows with IV ≥ this                           |
+| Auto-scan         | On              | Auto-detect IBKR data. Disable to use Scan button only. |
+| Download Filename | option_wishlist | Custom base name for CSV exports                        |
 
 ---
 
@@ -166,33 +166,36 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 ---
 
-## Recent Updates (v5.2)
+## Recent Updates (v5.1.3)
 
 - **Icon-triggered only**: Extension no longer auto-injects on every page. Only shows when the user clicks the toolbar
   icon.
 - **Gold coin icon**: New 3D gold coin extension icon.
 - **Ask Price**: Replaced "Total Bid Asking" with Ask Price using correct IBKR selectors.
-- **Mid-Price**: Auto-calculated `(Bid + Ask) / 2` displayed in the calculator.
+- **Mid Price**: Auto-calculated `(Bid + Ask) / 2` displayed in the calculator and compact mode banner.
 - **Spread % Indicator**: Liquidity assessment based on bid-ask spread (Very Liquid / Okay / Careful / Illiquid).
-- **2 Decimal Precision**: Bid, Ask, Strike, Sell Price, Premium, and IV all display to two decimal places.
-- **Renamed fields**: "Actual Price" → "Sell Price," "Actual ROI" → "Sell ROI."
-- **Wishlist Mid-column**: Mid-Price now saved and displayed in the Wishlist table.
+- **2 Decimal Precision**: Bid, Ask, Strike, Sell Price, Premium, and IV all display to 2 decimal places.
+- **Renamed fields**: "Actual Price" → "Sell Price", "Actual ROI" → "Sell ROI".
+- **Capital Held**: Sell Call now shows "Capital Held" instead of "Capital Required".
+- **Wishlist Mid column**: Mid Price now saved and displayed in the Wishlist table.
 - **Wishlist totals**: Total Capital, Total Premium, and ROI shown for selected entries.
 - **Resizable window**: Drag right edge to enlarge — width persisted across sessions.
 - **Delete confirmation**: Wishlist delete requires two clicks (like Clear All).
-- **Reload resilience**: Extension properly recovers after the browser extension reloads.
-- **Orphan cleanup**: Handles stale overlays from previous extension sessions gracefully.
+- **Auto-scan toggle**: When disabled, all automatic detection stops — use Scan button only.
+- **Performance**: Debounced storage writes, throttled pollers, self-mutation filtering to prevent browser hangs.
+- **Reload resilience**: Extension properly recovers after browser extension reload.
+- **Compact mode**: Banner shows Bid, Ask, and Mid prices for quick reference.
 
 ---
 
 ## Permissions Justification
 
-| Permission          | Justification                                                                                                                                                                                                                                         |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `storage`           | Used to persist user settings (ROI goal, IV goal, capital budget), calculator input values, and the Wishlist data locally on the user's device. No data is sent externally.                                                                           |
-| `activeTab`         | Required to read option chain data (bid, ask, strike, IV, DTE) from the currently active broker page (Interactive Brokers) when the user clicks the extension icon. Only accesses the tab the user is actively viewing.                               |
-| `scripting`         | Used to inject the calculator overlay (content script and CSS) into the active tab when the user clicks the extension icon. The extension does not auto-inject on page load — injection only occurs on explicit user action.                          |
-| `<all_urls>` (host) | Allows the calculator overlay to be injected on any page where the user clicks the icon. Auto-scan of option data only works on Interactive Brokers (interactivebrokers.com), but the calculator UI can be used manually on any page for convenience. |
+| Permission                | Justification                                                                                                                                                                                                                |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `storage`                 | Used to persist user settings (ROI goal, IV goal, capital budget), calculator input values, and the Wishlist data locally on the user's device. No data is sent externally.                                                  |
+| `activeTab`               | Required to inject the calculator overlay and read option chain data (bid, ask, strike, IV, DTE) from the currently active tab when the user clicks the extension icon. Only accesses the tab the user is actively viewing.  |
+| `scripting`               | Used to inject the calculator overlay (content script and CSS) into the active tab when the user clicks the extension icon. The extension does not auto-inject on page load — injection only occurs on explicit user action. |
+| `host_permissions` (IBKR) | Limited to `*.interactivebrokers.com` and `*.interactivebrokers.com.au` — the only broker pages where auto-scan reads option chain data. No broad host access is requested.                                                  |
 
 **Remote code:** This extension does not use any remote code. All JavaScript and CSS are bundled locally in the
 extension package. No external scripts, no `eval()`, no remote modules.
