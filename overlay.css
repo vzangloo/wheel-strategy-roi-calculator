@@ -615,7 +615,8 @@
 #__option-roi-root__ .oi-rv {
   font-family: var(--mono) !important;
   color: var(--text) !important;
-  font-weight: 500 !important;
+    font-weight: 900 !important;
+    font-size: 16px !important;
 }
 
 
@@ -1021,9 +1022,17 @@
 }
 
 #__option-roi-root__ .oi-sym {
-  font-weight: 700 !important;
+    font-weight: 900 !important;
   color: var(--text) !important;
   letter-spacing: .05em !important;
+}
+
+#__option-roi-root__ .oi-tbl td.oi-sym {
+    background: #1e3048 !important;
+}
+
+#__option-roi-root__.oi-light .oi-tbl td.oi-sym {
+    background: #dce8f4 !important;
 }
 
 #__option-roi-root__ .oi-call {
