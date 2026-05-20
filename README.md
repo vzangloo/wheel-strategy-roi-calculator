@@ -187,12 +187,12 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 ## Permissions Justification
 
-| Permission          | Justification                                                                                                                                                                                                                                         |
-|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `storage`           | Used to persist user settings (ROI goal, IV goal, capital budget), calculator input values, and the Wishlist data locally on the user's device. No data is sent externally.                                                                           |
-| `activeTab`         | Required to read option chain data (bid, ask, strike, IV, DTE) from the currently active broker page (Interactive Brokers) when the user clicks the extension icon. Only accesses the tab the user is actively viewing.                               |
-| `scripting`         | Used to inject the calculator overlay (content script and CSS) into the active tab when the user clicks the extension icon. The extension does not auto-inject on page load — injection only occurs on explicit user action.                          |
-| `<all_urls>` (host) | Allows the calculator overlay to be injected on any page where the user clicks the icon. Auto-scan of option data only works on Interactive Brokers (interactivebrokers.com), but the calculator UI can be used manually on any page for convenience. |
+| Permission                | Justification                                                                                                                                                                                                                |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `storage`                 | Used to persist user settings (ROI goal, IV goal, capital budget), calculator input values, and the Wishlist data locally on the user's device. No data is sent externally.                                                  |
+| `activeTab`               | Required to inject the calculator overlay and read option chain data (bid, ask, strike, IV, DTE) from the currently active tab when the user clicks the extension icon. Only accesses the tab the user is actively viewing.  |
+| `scripting`               | Used to inject the calculator overlay (content script and CSS) into the active tab when the user clicks the extension icon. The extension does not auto-inject on page load — injection only occurs on explicit user action. |
+| `host_permissions` (IBKR) | Limited to `*.interactivebrokers.com` and `*.interactivebrokers.com.au` — the only broker pages where auto-scan reads option chain data. No broad host access is requested.                                                  |
 
 **Remote code:** This extension does not use any remote code. All JavaScript and CSS are bundled locally in the
 extension package. No external scripts, no `eval()`, no remote modules.
