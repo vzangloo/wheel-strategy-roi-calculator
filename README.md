@@ -166,7 +166,7 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 ---
 
-## Recent Updates (v5.2)
+## Recent Updates (v5.1.2)
 
 - **Icon-triggered only**: Extension no longer auto-injects on every page. Only shows when the user clicks the toolbar
   icon.

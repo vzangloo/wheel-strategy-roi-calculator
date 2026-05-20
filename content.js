@@ -376,7 +376,7 @@
   </div>
   <div class="oi-cfg-row">
     <div><div class="oi-cfg-lbl">Version</div></div>
-    <div class="oi-cfg-ctrl" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;">v5.1 · IBKR Wheel</div>
+    <div class="oi-cfg-ctrl" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;">v5.1.2 · IBKR Wheel</div>
   </div>
   <div class="oi-formula-note">
     <h3>Formulas</h3>
@@ -1020,7 +1020,9 @@
       if (data.dte != null) this.g("oiDte").value = data.dte;
 
       const midVal = this.g("oiMidPrice") ? this.g("oiMidPrice").textContent : "0.00";
-      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(2) + "%" : "", "Mid\u00A0$" + midVal].filter(Boolean);
+      const bidVal = this.g("oiBid") ? parseFloat(this.g("oiBid").value || 0).toFixed(2) : "0.00";
+      const askVal = this.g("oiAskPrice") ? parseFloat(this.g("oiAskPrice").value || 0).toFixed(2) : "0.00";
+      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(2) + "%" : "", "Bid\u00A0$" + bidVal, "Ask\u00A0$" + askVal, "Mid\u00A0$" + midVal].filter(Boolean);
       this.g("oiBannerMsg").textContent = data.detected ? parts.join(" · ") : "No symbol detected.";
       this.g("oiBanner").classList.remove("oi-hidden");
 
