@@ -103,14 +103,17 @@
 
     persist() {
       if (!this.isContextValid()) return;
-      chrome.storage.local.set({
-        wsCalcV5: {
-          roiGoal: this.roiGoal, ivGoal: this.ivGoal, capital: this.capital,
-          autoScan: this.autoScan, optionType: this.optionType, theme: this.theme, etf: this.etf,
-          wishlist: this.wishlist, pos: this.pos, lastValues: this.lastValues,
-          csvName: this.csvName,
-        }
-      });
+      if (this._persistTimer) clearTimeout(this._persistTimer);
+      this._persistTimer = setTimeout(() => {
+        chrome.storage.local.set({
+          wsCalcV5: {
+            roiGoal: this.roiGoal, ivGoal: this.ivGoal, capital: this.capital,
+            autoScan: this.autoScan, optionType: this.optionType, theme: this.theme, etf: this.etf,
+            wishlist: this.wishlist, pos: this.pos, lastValues: this.lastValues,
+            csvName: this.csvName, width: this.width,
+          }
+        });
+      }, 500);
     }
 
     setMinimized(min) {
@@ -888,9 +891,12 @@
         "Selected": e.selected ? "Yes" : "No", "Symbol": e.symbol, "ETF": e.etf || "No",
         "Stock Price ($)": e.stockPrice != null ? parseFloat((+e.stockPrice).toFixed(2)) : "",
         "IV (%)": e.iv != null ? parseFloat((+e.iv).toFixed(2)) : "", "Type": e.type, "Strike ($)": parseFloat((+e.strike).toFixed(2)),
-        "Bid ($)": parseFloat((+e.bid).toFixed(2)), "Ask Price ($)": e.askPrice != null ? parseFloat((+e.askPrice).toFixed(2)) : "",
-        "Mid Price ($)": e.midPrice != null ? parseFloat((+e.midPrice).toFixed(2)) : "",
-        "ROI (%)": parseFloat((+e.roi1).toFixed(2)), "DTE": e.dte || "", "Qty": e.qty,
+        "Bid ($)": parseFloat((+e.bid).toFixed(2)),
+        "Ask ($)": e.askPrice != null ? parseFloat((+e.askPrice).toFixed(2)) : "",
+        "Mid ($)": e.midPrice != null ? parseFloat((+e.midPrice).toFixed(2)) : "",
+        "ROI (%)": parseFloat((+e.roi1).toFixed(2)),
+        "DTE (Days)": e.dte || "",
+        "Qty": e.qty,
         "Sell Price ($)": e.price || "", "Premium ($)": parseFloat((+e.premium).toFixed(2)),
         "Sell ROI (%)": parseFloat((+e.roi2).toFixed(2)), "Capital ($)": parseFloat((+e.cap).toFixed(2)), "Added": e.addedAt,
       }));
@@ -907,9 +913,11 @@
     // ── Scanning Logic ──────────────────────────────────────────────────
     scanPage() {
       const pv = Utils.nEl(Utils.qs(SEL.bidPut)), cv = Utils.nEl(Utils.qs(SEL.bidCall));
-      let type = "PUT";
+      // Respect user's current option type selection
+      let type = this.settings.optionType;
+      // Only override if one side is clearly missing
       if (pv == null && cv != null) type = "CALL";
-      else if (pv != null) type = "PUT";
+      else if (cv == null && pv != null) type = "PUT";
 
       const strike = type === "CALL" ? Utils.nEl(Utils.qs(SEL.strikeCall)) : Utils.nEl(Utils.qs(SEL.strikePut));
       const askPrice = type === "CALL" ? Utils.nEl(Utils.qs(SEL.askPriceCall)) : Utils.nEl(Utils.qs(SEL.askPricePut));
@@ -1021,22 +1029,38 @@
 
     setupObservers() {
       let t = null;
-      this._mutationObserver = new MutationObserver(() => {
+      let scanning = false;
+      this._mutationObserver = new MutationObserver((mutations) => {
         if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
+        // Ignore mutations from our own overlay
+        const fromSelf = mutations.every(m => this.root.contains(m.target));
+        if (fromSelf) return;
+        if (scanning) return;
         clearTimeout(t);
-        t = setTimeout(() => { if (Utils.qs(SEL.symbol) || Utils.qs(SEL.bidPut)) this.applyScannedData(this.scanPage()); }, 400);
+        t = setTimeout(() => {
+          if (scanning) return;
+          scanning = true;
+          try {
+            if (Utils.qs(SEL.symbol) || Utils.qs(SEL.bidPut)) this.applyScannedData(this.scanPage());
+          } finally {
+            scanning = false;
+          }
+        }, 400);
       });
       this._mutationObserver.observe(document.body, { childList: true, subtree: true });
     }
 
     setupPollers() {
-      // Fast poll (200ms) for bid/strike/askPrice
+      // Fast poll (300ms) for bid/strike/askPrice
       this._pollIntervals.push(setInterval(() => {
         if (!this.root || this.root.classList.contains("oi-hidden")) return;
         const fpv = Utils.nEl(Utils.qs(SEL.bidPut)), fcv = Utils.nEl(Utils.qs(SEL.bidCall));
         const fBid = (this.settings.optionType === "CALL" ? fcv : fpv);
         const fStrike = (this.settings.optionType === "CALL" ? Utils.nEl(Utils.qs(SEL.strikeCall)) : Utils.nEl(Utils.qs(SEL.strikePut)));
         const fAsk = (this.settings.optionType === "CALL" ? Utils.nEl(Utils.qs(SEL.askPriceCall)) : Utils.nEl(Utils.qs(SEL.askPricePut)));
+
+        // Only update if values actually changed (don't reset to 0)
+        if (fBid == null && fStrike == null) return;
 
         if (fBid != null && fBid !== parseFloat(this.g("oiBid").value)) {
           this.g("oiBid").value = fBid.toFixed(2); this.g("oiPremium").value = "0.00"; this.g("oiPrice").value = "0.00";
@@ -1048,9 +1072,9 @@
         if (fAsk != null && fAsk !== parseFloat(this.g("oiAskPrice").value)) {
           this.g("oiAskPrice").value = fAsk.toFixed(2); this.updateMidPrice(); this.saveValues(); this.calculate();
         }
-      }, 200));
+      }, 300));
 
-      // Slow poll (1000ms) for DTE and Qty
+      // Slow poll (2000ms) for DTE and Qty
       this._pollIntervals.push(setInterval(() => {
         if (!this.root || this.root.classList.contains("oi-hidden")) return;
         const days = this.detectDte();
@@ -1062,7 +1086,7 @@
         if (qty != null && qty !== parseInt(this.g("oiQty").value)) {
           this.g("oiQty").value = qty; this.saveValues(); this.calculate();
         }
-      }, 1000));
+      }, 2000));
     }
 
     setupMessaging() {
