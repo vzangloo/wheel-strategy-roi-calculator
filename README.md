@@ -131,13 +131,13 @@ This extension works out-of-the-box on **Chrome, Microsoft Edge, Brave, Opera**,
 
 ## Settings
 
-| Setting           | Default         | Description                                          |
-|-------------------|-----------------|------------------------------------------------------|
-| Capital ($)       | 10000           | Budget — warn if total capital required exceeds this |
-| ROI Goal          | 2.5%            | Highlight rows with Cash-secured/Covered ROI ≥ this  |
-| IV Goal           | 40%             | Highlight rows with IV ≥ this                        |
-| Auto-scan on Open | On              | Scan active tab when popup opens                     |
-| Download Filename | option_wishlist | Custom base name for CSV exports                     |
+| Setting           | Default         | Description                                             |
+|-------------------|-----------------|---------------------------------------------------------|
+| Capital ($)       | 10000           | Budget — warn if total capital required exceeds this    |
+| ROI Goal          | 2.5%            | Highlight rows with Cash-secured/Covered ROI ≥ this     |
+| IV Goal           | 40%             | Highlight rows with IV ≥ this                           |
+| Auto-scan         | On              | Auto-detect IBKR data. Disable to use Scan button only. |
+| Download Filename | option_wishlist | Custom base name for CSV exports                        |
 
 ---
 
@@ -166,22 +166,25 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 ---
 
-## Recent Updates (v5.1.2)
+## Recent Updates (v5.1.3)
 
 - **Icon-triggered only**: Extension no longer auto-injects on every page. Only shows when the user clicks the toolbar
   icon.
 - **Gold coin icon**: New 3D gold coin extension icon.
 - **Ask Price**: Replaced "Total Bid Asking" with Ask Price using correct IBKR selectors.
-- **Mid-Price**: Auto-calculated `(Bid + Ask) / 2` displayed in the calculator.
+- **Mid Price**: Auto-calculated `(Bid + Ask) / 2` displayed in the calculator and compact mode banner.
 - **Spread % Indicator**: Liquidity assessment based on bid-ask spread (Very Liquid / Okay / Careful / Illiquid).
-- **2 Decimal Precision**: Bid, Ask, Strike, Sell Price, Premium, and IV all display to two decimal places.
-- **Renamed fields**: "Actual Price" → "Sell Price," "Actual ROI" → "Sell ROI."
-- **Wishlist Mid-column**: Mid-Price now saved and displayed in the Wishlist table.
+- **2 Decimal Precision**: Bid, Ask, Strike, Sell Price, Premium, and IV all display to 2 decimal places.
+- **Renamed fields**: "Actual Price" → "Sell Price", "Actual ROI" → "Sell ROI".
+- **Capital Held**: Sell Call now shows "Capital Held" instead of "Capital Required".
+- **Wishlist Mid column**: Mid Price now saved and displayed in the Wishlist table.
 - **Wishlist totals**: Total Capital, Total Premium, and ROI shown for selected entries.
 - **Resizable window**: Drag right edge to enlarge — width persisted across sessions.
 - **Delete confirmation**: Wishlist delete requires two clicks (like Clear All).
-- **Reload resilience**: Extension properly recovers after the browser extension reloads.
-- **Orphan cleanup**: Handles stale overlays from previous extension sessions gracefully.
+- **Auto-scan toggle**: When disabled, all automatic detection stops — use Scan button only.
+- **Performance**: Debounced storage writes, throttled pollers, self-mutation filtering to prevent browser hangs.
+- **Reload resilience**: Extension properly recovers after browser extension reload.
+- **Compact mode**: Banner shows Bid, Ask, and Mid prices for quick reference.
 
 ---
 

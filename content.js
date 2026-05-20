@@ -309,7 +309,7 @@
       <div class="oi-rrow"><span class="oi-rk">IV Goal</span><span class="oi-iv-goal-ind" id="oiIvGoalInd"></span></div>
       <div class="oi-rrow"><span class="oi-rk">Moneyness</span><span id="oiMoneyStatus" class="oi-money-badge">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Spread %</span><span id="oiSpreadInd" class="oi-money-badge">—</span></div>
-      <div class="oi-rrow"><span class="oi-rk">Capital Required</span><span class="oi-rv" id="oiCap">—</span></div>
+      <div class="oi-rrow"><span class="oi-rk" id="oiCapLbl">Capital Required</span><span class="oi-rv" id="oiCap">—</span></div>
     </div>
   </div>
   <div class="oi-actions">
@@ -360,7 +360,7 @@
     <div class="oi-cfg-ctrl"><div class="oi-inp-wrap"><input class="oi-inp" type="number" id="oiIvGoalCfg" step="1" min="0" max="500"/><span>%</span></div></div>
   </div>
   <div class="oi-cfg-row">
-    <div><div class="oi-cfg-lbl">Auto-scan on Open</div><div class="oi-cfg-sub">Auto-detect IBKR page data</div></div>
+    <div><div class="oi-cfg-lbl">Auto-scan</div><div class="oi-cfg-sub">Automatically detect IBKR data. Disable to use Scan button only.</div></div>
     <div class="oi-cfg-ctrl"><label class="oi-chk-lbl"><input class="oi-chk" type="checkbox" id="oiAutoScan"/> Enabled</label></div>
   </div>
   <div class="oi-cfg-row">
@@ -376,7 +376,7 @@
   </div>
   <div class="oi-cfg-row">
     <div><div class="oi-cfg-lbl">Version</div></div>
-    <div class="oi-cfg-ctrl" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;">v5.1.2 · IBKR Wheel</div>
+    <div class="oi-cfg-ctrl" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;" id="oiVersion">IBKR Wheel</div>
   </div>
   <div class="oi-formula-note">
     <h3>Formulas</h3>
@@ -667,6 +667,11 @@
       this.g("oiIvGoalCfg").value = this.settings.ivGoal;
       this.g("oiAutoScan").checked = this.settings.autoScan;
       this.g("oiCsvNameCfg").value = this.settings.csvName || "option_wishlist";
+      try {
+        const ver = chrome.runtime.getManifest().version;
+        this.g("oiVersion").textContent = "v" + ver + " · IBKR Wheel";
+      } catch (e) {
+      }
     }
 
     calculate() {
@@ -747,6 +752,9 @@
       r1.textContent = Utils.pct(r.roi1); r1.className = "oi-roi-num " + (hit1 ? "hit" : r.roi1 > 0 ? "pos" : "");
       r2.textContent = Utils.pct(r.roi2); r2.className = "oi-roi-num oi-roi2 " + (hit2 ? "hit" : r.roi2 > 0 ? "pos" : "");
       cap.textContent = Utils.fmt$(r.cap);
+
+      const capLbl = g("oiCapLbl");
+      if (capLbl) capLbl.textContent = this.settings.optionType === "CALL" ? "Capital Held" : "Capital Required";
 
       g("oiRoi1Lbl").textContent = strategy.label;
       g("oiRoi1Sub").textContent = strategy.formula;
@@ -1055,7 +1063,7 @@
     setupPollers() {
       // Fast poll (300ms) for bid/strike/askPrice
       this._pollIntervals.push(setInterval(() => {
-        if (!this.root || this.root.classList.contains("oi-hidden")) return;
+        if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         const fpv = Utils.nEl(Utils.qs(SEL.bidPut)), fcv = Utils.nEl(Utils.qs(SEL.bidCall));
         const fBid = (this.settings.optionType === "CALL" ? fcv : fpv);
         const fStrike = (this.settings.optionType === "CALL" ? Utils.nEl(Utils.qs(SEL.strikeCall)) : Utils.nEl(Utils.qs(SEL.strikePut)));
@@ -1078,7 +1086,7 @@
 
       // Slow poll (2000ms) for DTE and Qty
       this._pollIntervals.push(setInterval(() => {
-        if (!this.root || this.root.classList.contains("oi-hidden")) return;
+        if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         const days = this.detectDte();
         if (days != null && days !== parseInt(this.g("oiDte").value)) {
           this.g("oiDte").value = days; this.saveValues(); this.calculate();
