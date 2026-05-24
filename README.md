@@ -91,6 +91,32 @@ The calculator automatically syncs the per-share price and total dollar amount:
 
 ---
 
+## Maximum Profit Checklist
+
+Use this checklist to evaluate whether a Wheel Strategy trade is set up for maximum profit:
+
+| #  | Criteria                     | Ideal                       | Why                                                            |
+|----|------------------------------|-----------------------------|----------------------------------------------------------------|
+| 1  | **IV Rank / IV Percentile**  | High (IV ≥ 40%)             | Higher IV = fatter premiums. Sell when IV is elevated.         |
+| 2  | **DTE (Days to Expiration)** | 30–45 days                  | Sweet spot for theta decay. Best time-value-to-risk ratio.     |
+| 3  | **Strike Selection (Put)**   | OTM, delta 0.20–0.30        | Lower assignment risk while still collecting decent premium.   |
+| 4  | **Strike Selection (Call)**  | OTM, delta 0.20–0.30        | Keep shares if bullish, collect premium above cost basis.      |
+| 5  | **Spread %**                 | < 5% (Very Liquid)          | Tight spreads = better fills, less slippage.                   |
+| 6  | **Open Interest**            | ≥ 100 contracts             | High OI = active market, easier to enter/exit positions.       |
+| 7  | **Volume**                   | ≥ 50 contracts/day          | High volume = competitive pricing, tighter bid-ask.            |
+| 8  | **ROI per Trade**            | ≥ 2.5% per cycle            | Consistent income target. Compounds over time.                 |
+| 9  | **Stock Fundamentals**       | Strong company you'd own    | Only wheel stocks you're happy to hold if assigned.            |
+| 10 | **No Earnings / Events**     | Avoid earnings week         | Earnings cause unpredictable gaps that can blow past strikes.  |
+| 11 | **Moneyness**                | OTM (Lower Risk)            | Avoid ATM/ITM unless intentionally seeking assignment.         |
+| 12 | **Position Size**            | ≤ 5% of portfolio per trade | Diversify across multiple underlyings to reduce risk.          |
+| 13 | **ETF vs Stock**             | ETFs for stability          | ETFs have less gap risk; stocks offer higher premiums.         |
+| 14 | **Exit Strategy**            | Close at 50–75% profit      | Don't hold to expiration. Take profit early, redeploy capital. |
+
+**Rule of thumb:** If a trade meets criteria 1–8 and 11, it's a strong candidate. Criteria 9–10 and 12–14 are risk
+management guardrails.
+
+---
+
 ## Installation (Supported Browsers)
 
 This extension works out-of-the-box on **Chrome, Microsoft Edge, Brave, Opera**, and other Chromium-based browsers.
@@ -166,7 +192,7 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 ---
 
-## Recent Updates (v5.1.3)
+## Recent Updates (v5.1.4)
 
 - **Icon-triggered only**: Extension no longer auto-injects on every page. Only shows when the user clicks the toolbar
   icon.
@@ -199,3 +225,9 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 **Remote code:** This extension does not use any remote code. All JavaScript and CSS are bundled locally in the
 extension package. No external scripts, no `eval()`, no remote modules.
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

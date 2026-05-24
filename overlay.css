@@ -135,16 +135,20 @@
 }
 
 #__option-roi-root__ .oi-logo {
-  width: 28px !important;
-  height: 28px !important;
-  background: linear-gradient(135deg, #58a6ff 0%, #3fb950 100%) !important;
-  border-radius: 7px !important;
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 50% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 15px !important;
-  color: #fff !important;
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  font-family: var(--mono) !important;
   flex-shrink: 0 !important;
+  background: linear-gradient(135deg, #ffd850 0%, #d29922 100%) !important;
+  color: #5c3300 !important;
+  border: 2px solid #b8860b !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .3) !important;
 }
 
 #__option-roi-root__ .oi-title {
