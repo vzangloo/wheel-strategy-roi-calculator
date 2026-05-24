@@ -193,7 +193,7 @@
     buildHTML() {
       return `
 <div class="oi-header" id="oi-drag-handle">
-  <div class="oi-logo">⚙</div>
+  <div class="oi-logo">$</div>
   <div class="oi-title"><h1>Wheel Strategy</h1><p>IBKR · Sell Put / Sell Call ROI</p></div>
   <div class="oi-hctrl">
     <button class="oi-theme-btn" id="oiThemeBtn" title="Toggle light/dark theme">🌙</button>
@@ -897,16 +897,20 @@
       if (!this.settings.wishlist.length) { this.showToast("Wishlist is empty", "error"); return; }
       const rows = this.settings.wishlist.map(e => ({
         "Selected": e.selected ? "Yes" : "No", "Symbol": e.symbol, "ETF": e.etf || "No",
-        "Stock Price ($)": e.stockPrice != null ? parseFloat((+e.stockPrice).toFixed(2)) : "",
-        "IV (%)": e.iv != null ? parseFloat((+e.iv).toFixed(2)) : "", "Type": e.type, "Strike ($)": parseFloat((+e.strike).toFixed(2)),
-        "Bid ($)": parseFloat((+e.bid).toFixed(2)),
-        "Ask ($)": e.askPrice != null ? parseFloat((+e.askPrice).toFixed(2)) : "",
-        "Mid ($)": e.midPrice != null ? parseFloat((+e.midPrice).toFixed(2)) : "",
-        "ROI (%)": parseFloat((+e.roi1).toFixed(2)),
+        "Stock Price ($)": (+(e.stockPrice || 0)).toFixed(2),
+        "IV (%)": (+(e.iv || 0)).toFixed(2), "Type": e.type,
+        "Strike ($)": (+(e.strike || 0)).toFixed(2),
+        "Bid ($)": (+(e.bid || 0)).toFixed(2),
+        "Ask ($)": (+(e.askPrice || 0)).toFixed(2),
+        "Mid ($)": (+(e.midPrice || 0)).toFixed(2),
+        "ROI (%)": (+(e.roi1 || 0)).toFixed(2),
         "DTE (Days)": e.dte || "",
         "Qty": e.qty,
-        "Sell Price ($)": e.price || "", "Premium ($)": parseFloat((+e.premium).toFixed(2)),
-        "Sell ROI (%)": parseFloat((+e.roi2).toFixed(2)), "Capital ($)": parseFloat((+e.cap).toFixed(2)), "Added": e.addedAt,
+        "Sell Price ($)": (+(e.price || 0)).toFixed(2),
+        "Premium ($)": (+(e.premium || 0)).toFixed(2),
+        "Sell ROI (%)": (+(e.roi2 || 0)).toFixed(2),
+        "Capital ($)": (+(e.cap || 0)).toFixed(2),
+        "Added": e.addedAt,
       }));
       const h = Object.keys(rows[0]);
       const csv = [h.join(","), ...rows.map(r => h.map(k => { const v = r[k]; return typeof v === "string" && v.includes(",") ? `"${v}"` : v; }).join(","))].join("\n");
