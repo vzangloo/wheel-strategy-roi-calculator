@@ -13,8 +13,14 @@
 
   // ── Selectors ───────────────────────────────────────────────────────────
   const SEL = {
-    symbol: "#cp-ib-app-main-content > div._col.flex.grow.border-start > section > div > div.quote.numeric.insetx-16.after-16.quote-v.before-16 > div > div.quote-symprice > div.flex-fixed > h1 > div.quote-symbol > div",
-    stockPrice: "#cp-ib-app-main-content > div._col.flex.grow.border-start > section > div > div.quote.numeric.insetx-16.after-16.quote-v.before-16 > div > div.quote-symprice > div.quote-price.text-semibold.lh-sm.fs2 > span:nth-child(1)",
+    symbol: [
+      "#cp-ib-app-main-content > div._col.flex.grow.border-start > section > div > div.quote.numeric.insetx-16.after-16.quote-v.before-16 > div > div.quote-symprice > div.flex-fixed > h1 > div.quote-symbol > div",
+      "#cp-header > section:nth-child(2) > div > div > div.quote-details-inner > div > div.quote-main > div.quote-symprice > div.flex-fixed > h1 > div.quote-symbol > div"
+    ],
+    stockPrice: [
+      "#cp-ib-app-main-content > div._col.flex.grow.border-start > section > div > div.quote.numeric.insetx-16.after-16.quote-v.before-16 > div > div.quote-symprice > div.quote-price.text-semibold.lh-sm.fs2 > span:nth-child(1)",
+      "#cp-header > section:nth-child(2) > div > div > div.quote-details-inner > div > div.quote-main > div.quote-symprice > div.quote-price.text-semibold.lh-sm.fs2 > span:nth-child(1)"
+    ],
     bidPut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-puts > div:nth-child(1) > div.opt-lbl-col-body.border-top.border-bottom > div.isSell.isBidAsk.bg-sell.opt-text-bold > div:nth-child(1)",
     bidCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-calls > div:nth-child(1) > div.opt-lbl-col-body.border-top.border-bottom > div.isSell.isBidAsk.bg-sell.opt-text-bold > div:nth-child(1)",
     askPricePut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-puts > div:nth-child(2) > div.opt-lbl-col-body.border-top.border-bottom > div.isBuy.isBidAsk.bg15-sell.border-sell > div:nth-child(1)",
@@ -22,14 +28,33 @@
     strikePut: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-strikes.bg-gray10.fs7.text-medium > div > div.opt-bg-put-sell.border-sell.border-start",
     strikeCall: "#optLblCon > div.opt-lbl-body.numeric > div.opt-lbl-strikes.bg-gray10.fs7.text-medium > div > div.opt-bg-call-sell.border-sell.border-end",
     premium: "#orderTicketSellTabPanel > div > div.order-ticket__sidebar > div:nth-child(1) > div > div:nth-child(2) > div > table tr:nth-child(3) > td.numeric.ellipsis",
-    iv: "#cp-ib-app-main-content > div:nth-child(1) > div > div:nth-child(2) > div.option-wrapper > section > div > div.ib-row.grow.opt-lbl > div > div.ib-row.opt-lbl-top.fs8.text-center.bg-gray10 > div.bg-gray20.opt-lbl-capt > div.opt-lbl-strike-head.bg-gray20.fg70.fs8.uppercase.insety-4",
-    dte: "#cp-ib-app-main-content > div:nth-child(1) > div > div:nth-child(2) > div.option-wrapper > section > div > div.fixed-flex.middle.border-bottom.border-top > div:nth-child(2) > div > div > div > div._ovfm > a._tab.text-center.opt-exp-select__item.insety-4.insetx-0.outsetx-4._taba > div:nth-child(1) > button > div",
+    iv: [
+      "#cp-ib-app-main-content > div:nth-child(1) > div > div:nth-child(2) > div.option-wrapper > section > div > div.ib-row.grow.opt-lbl > div > div.ib-row.opt-lbl-top.fs8.text-center.bg-gray10 > div.bg-gray20.opt-lbl-capt > div.opt-lbl-strike-head.bg-gray20.fg70.fs8.uppercase.insety-4",
+      "#cp-ib-app-main-content > div > section > div > div > section > div > div.ib-row.grow.opt-lbl > div > div.ib-row.opt-lbl-top.fs8.text-center.bg-gray10 > div.bg-gray20.opt-lbl-capt > div.opt-lbl-strike-head.bg-gray20.fg70.fs8.uppercase"
+    ],
+    dte: [
+      "#cp-ib-app-main-content > div:nth-child(1) > div > div:nth-child(2) > div.option-wrapper > section > div > div.fixed-flex.middle.border-bottom.border-top > div:nth-child(2) > div > div > div > div._ovfm > a._tab.text-center.opt-exp-select__item.insety-4.insetx-0.outsetx-4._taba > div:nth-child(1) > button > div",
+      "#cp-ib-app-main-content > div > section > div > div > section > div > div.fixed-flex.middle.border-bottom.border-top > div:nth-child(2) > div > div > div > div._ovfm > a._tab.text-center.opt-exp-select__item.insety-4.insetx-0.outsetx-4._taba > div:nth-child(1) > button > div"
+    ],
     limitQty: ".order-ticket__sidebar--field input[name='quantity']",
   };
 
   // ── Utils ───────────────────────────────────────────────────────────────
   class Utils {
-    static qs(sel) { try { return document.querySelector(sel); } catch (_) { return null; } }
+    static qs(sel) {
+      try {
+        if (Array.isArray(sel)) {
+          for (const s of sel) {
+            const el = document.querySelector(s);
+            if (el) return el;
+          }
+          return null;
+        }
+        return document.querySelector(sel);
+      } catch (_) {
+        return null;
+      }
+    }
     static txt(el) { return el ? (el.textContent || el.value || "").trim() : null; }
     static nEl(el) { const r = this.txt(el); if (!r) return null; const n = parseFloat(r.replace(/[^0-9.\-]/g, "")); return isNaN(n) ? null : n; }
     static safe(v) { const n = parseFloat(v); return (isNaN(n) || v == null) ? 0 : n; }
@@ -1105,7 +1130,7 @@
 
     setupMessaging() {
       if (!this.settings.isContextValid()) return;
-      chrome.runtime.onMessage.addListener(msg => {
+      chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (msg.type === "TOGGLE_OVERLAY") {
           this.settings.isClosed = false;
           this.settings.setClosed(false);
@@ -1117,6 +1142,7 @@
             this.setupObservers();
             this.setupPollers();
           }
+          sendResponse({ok: true});
         }
       });
     }

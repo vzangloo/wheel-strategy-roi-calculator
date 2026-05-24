@@ -1,13 +1,18 @@
 // background.js — Wheel Strategy IBKR
 // Toolbar click: show the overlay (inject if needed, always un-hide)
 chrome.action.onClicked.addListener((tab) => {
-  // First try to send a message to an already-injected overlay
-  chrome.tabs.sendMessage(tab.id, { type: "TOGGLE_OVERLAY" }, () => {
+    // Try to send message to existing content script
+    chrome.tabs.sendMessage(tab.id, {type: "TOGGLE_OVERLAY"}, (response) => {
     if (chrome.runtime.lastError) {
-      // Content script not yet injected — inject it now
-      chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["overlay.css"] })
-        .then(() => chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }))
-        .catch(() => {});
+        // Content script not responding — inject fresh
+        injectOverlay(tab.id);
     }
-  });
+    });
 });
+
+function injectOverlay(tabId) {
+    chrome.scripting.insertCSS({target: {tabId: tabId}, files: ["overlay.css"]})
+        .then(() => chrome.scripting.executeScript({target: {tabId: tabId}, files: ["content.js"]}))
+        .catch(() => {
+        });
+}
