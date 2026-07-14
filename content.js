@@ -883,7 +883,8 @@
 
     updateCapBar() {
       const sel = this.settings.wishlist.filter(e => e.selected);
-      const total = sel.reduce((sum, e) => sum + Utils.safe(e.cap), 0);
+      // Only include PUT entries in capital calculation — selling calls doesn't require additional capital
+      const total = sel.filter(e => e.type !== "CALL").reduce((sum, e) => sum + Utils.safe(e.cap), 0);
       const totalPrem = sel.reduce((sum, e) => sum + Utils.safe(e.premium), 0);
       const totalRoi = total > 0 ? (totalPrem / total) * 100 : 0;
       const valEl = this.g("oiCapTotal"), warn = this.g("oiCapWarn"), premEl = this.g("oiPremTotal"), roiEl = this.g("oiTotalRoi");
