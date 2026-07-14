@@ -137,18 +137,21 @@
 #__option-roi-root__ .oi-logo {
   width: 30px !important;
   height: 30px !important;
-  border-radius: 50% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 18px !important;
-  font-weight: 900 !important;
-  font-family: var(--mono) !important;
   flex-shrink: 0 !important;
-  background: linear-gradient(135deg, #ffd850 0%, #d29922 100%) !important;
-  color: #5c3300 !important;
-  border: 2px solid #b8860b !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, .3) !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+#__option-roi-root__ .oi-logo-img {
+  width: 32px !important;
+  height: 32px !important;
+  display: block !important;
+  object-fit: contain !important;
 }
 
 #__option-roi-root__ .oi-title {

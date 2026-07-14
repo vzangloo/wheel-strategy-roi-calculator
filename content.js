@@ -218,7 +218,7 @@
     buildHTML() {
       return `
 <div class="oi-header" id="oi-drag-handle">
-  <div class="oi-logo">$</div>
+  <div class="oi-logo"><img src="${chrome.runtime.getURL("icons/icon48.png")}" class="oi-logo-img"/></div>
   <div class="oi-title"><h1>Wheel Strategy</h1><p>IBKR · Sell Put / Sell Call ROI</p></div>
   <div class="oi-hctrl">
     <button class="oi-theme-btn" id="oiThemeBtn" title="Toggle light/dark theme">🌙</button>
