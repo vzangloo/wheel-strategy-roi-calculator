@@ -1,6 +1,6 @@
 /**
  * Wheel Strategy ROI Calculator — IBKR Edition
- * content.js v5.1 (Refactored to Classes)
+ * content.js v5.1.5
  */
 (function () {
   "use strict";
@@ -105,7 +105,9 @@
       this.autoScan = true;
       this.optionType = "PUT";
       this.theme = "dark";
-      this.etf = "No";
+      this.etf = "";
+      this.stockTypes = ["Equity", "ETF", "REIT", "ADR", "CEF", "Index", "BDC"];
+      this.symbolTypes = {}; // symbol → asset type mapping
       this.wishlist = [];
       this.pos = { x: null, y: null };
       this.lastValues = { symbol: "", bid: "", strike: "", premium: "0", price: "0", qty: "1", dte: "", stockPrice: "", iv: "", askPrice: "" };
@@ -121,6 +123,18 @@
           this.isClosed = !!res.wsCalcClosed;
           this.isMinimized = !!res.wsCalcMin;
           if (res.wsCalcV5) Object.assign(this, res.wsCalcV5);
+          // Migrate old ETF Yes/No values to new stock type format
+          if (this.etf && !this.stockTypes.includes(this.etf)) {
+            this.etf = "";
+          }
+          // Migrate old wishlist entries
+          if (this.wishlist && this.wishlist.length) {
+            for (const entry of this.wishlist) {
+              if (entry.etf && !this.stockTypes.includes(entry.etf)) {
+                entry.etf = "";
+              }
+            }
+          }
           resolve();
         });
       });
@@ -135,7 +149,7 @@
             roiGoal: this.roiGoal, ivGoal: this.ivGoal, capital: this.capital,
             autoScan: this.autoScan, optionType: this.optionType, theme: this.theme, etf: this.etf,
             wishlist: this.wishlist, pos: this.pos, lastValues: this.lastValues,
-            csvName: this.csvName, width: this.width,
+            csvName: this.csvName, width: this.width, symbolTypes: this.symbolTypes,
           }
         });
       }, 500);
@@ -218,7 +232,7 @@
     buildHTML() {
       return `
 <div class="oi-header" id="oi-drag-handle">
-  <div class="oi-logo">$</div>
+  <div class="oi-logo"><img src="${chrome.runtime.getURL("icons/icon48.png")}" class="oi-logo-img"/></div>
   <div class="oi-title"><h1>Wheel Strategy</h1><p>IBKR · Sell Put / Sell Call ROI</p></div>
   <div class="oi-hctrl">
     <button class="oi-theme-btn" id="oiThemeBtn" title="Toggle light/dark theme">🌙</button>
@@ -243,11 +257,11 @@
           <input class="oi-inp" type="text" id="oiSymbol" placeholder="" maxlength="8" autocomplete="off"/>
         </div>
         <div class="oi-pair-item">
-          <label class="oi-lbl">ETF</label>
-          <div class="oi-toggle">
-            <button class="oi-tog-etf active" data-etf="No">No</button>
-            <button class="oi-tog-etf" data-etf="Yes">Yes</button>
-          </div>
+          <label class="oi-lbl">Type</label>
+          <select class="oi-inp oi-select" id="oiStockType">
+            <option value="">—</option>
+            ${this.settings.stockTypes.map(t => `<option value="${t}">${t}</option>`).join("")}
+          </select>
         </div>
       </div>
     </div>
@@ -503,12 +517,17 @@
         this.calculate();
       }));
 
-      this.root.querySelectorAll(".oi-tog-etf").forEach(btn => btn.addEventListener("click", () => {
-        this.root.querySelectorAll(".oi-tog-etf").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        this.settings.etf = btn.dataset.etf;
+      this.g("oiStockType").addEventListener("change", () => {
+        this.settings.etf = this.g("oiStockType").value;
+        // Remember asset type for this symbol
+        const sym = (this.g("oiSymbol").value || "").toUpperCase().trim();
+        if (sym && this.settings.etf) {
+          this.settings.symbolTypes[sym] = this.settings.etf;
+        } else if (sym && !this.settings.etf) {
+          delete this.settings.symbolTypes[sym];
+        }
         this.settings.persist();
-      }));
+      });
 
       // ── Inputs & Calculation ───────────────────────────────────────────
       this.g("oiCalc").addEventListener("click", () => this.calculate());
@@ -672,7 +691,7 @@
       this.g("oiAskPrice").value = fmt2(v.askPrice);
       this.g("oiDte").value = v.dte || "";
       this.root.querySelectorAll(".oi-tog").forEach(b => b.classList.toggle("active", b.dataset.type === this.settings.optionType));
-      this.root.querySelectorAll(".oi-tog-etf").forEach(b => b.classList.toggle("active", b.dataset.etf === this.settings.etf));
+      this.g("oiStockType").value = this.settings.etf || "";
       this.updateMidPrice();
     }
 
@@ -849,7 +868,7 @@
         rows += `<tr class="${rowCls}" data-id="${e.id}">
           <td><input type="checkbox" class="oi-row-chk" data-chk="${e.id}" ${e.selected ? "checked" : ""}></td>
           <td class="oi-sym">${Utils.esc(e.symbol)}</td>
-          <td>${e.etf || "No"}</td>
+          <td>${e.etf || "—"}</td>
           <td>${e.stockPrice != null ? "$" + (+e.stockPrice).toFixed(2) : "—"}</td>
           <td>${ivBadge}</td>
           <td class="${e.type === "CALL" ? "oi-call" : "oi-put"}">${e.type === "CALL" ? "Call" : "Put"}</td>
@@ -873,7 +892,7 @@
       body.innerHTML = `<div class="oi-tbl-wrap"><table class="oi-tbl">
         <thead><tr>
           <th><input type="checkbox" data-chkall="1" ${allSelected ? "checked" : ""}></th>
-          <th>Sym</th><th>ETF</th><th>Stock$</th><th>IV</th><th>Type</th><th class="oi-strike-col">Strike</th><th>Bid</th>
+          <th>Sym</th><th>Class</th><th>Stock$</th><th>IV</th><th>Type</th><th class="oi-strike-col">Strike</th><th>Bid</th>
           <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>Sell ROI</th><th>Capital</th><th>Date</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -883,7 +902,8 @@
 
     updateCapBar() {
       const sel = this.settings.wishlist.filter(e => e.selected);
-      const total = sel.reduce((sum, e) => sum + Utils.safe(e.cap), 0);
+      // Only include PUT entries in capital calculation — selling calls doesn't require additional capital
+      const total = sel.filter(e => e.type !== "CALL").reduce((sum, e) => sum + Utils.safe(e.cap), 0);
       const totalPrem = sel.reduce((sum, e) => sum + Utils.safe(e.premium), 0);
       const totalRoi = total > 0 ? (totalPrem / total) * 100 : 0;
       const valEl = this.g("oiCapTotal"), warn = this.g("oiCapWarn"), premEl = this.g("oiPremTotal"), roiEl = this.g("oiTotalRoi");
@@ -921,7 +941,7 @@
     exportCsv() {
       if (!this.settings.wishlist.length) { this.showToast("Wishlist is empty", "error"); return; }
       const rows = this.settings.wishlist.map(e => ({
-        "Selected": e.selected ? "Yes" : "No", "Symbol": e.symbol, "ETF": e.etf || "No",
+        "Selected": e.selected ? "Yes" : "No", "Symbol": e.symbol, "Class": e.etf || "",
         "Stock Price ($)": (+(e.stockPrice || 0)).toFixed(2),
         "IV (%)": (+(e.iv || 0)).toFixed(2), "Type": e.type,
         "Strike ($)": (+(e.strike || 0)).toFixed(2),
@@ -970,7 +990,6 @@
         qty: lQtyEl ? (parseInt(lQtyEl.value) || null) : null,
         iv: this.parseIV(Utils.qs(SEL.iv)),
         dte: this.detectDte(),
-        etf: this.detectETF(),
       };
     }
 
@@ -1011,14 +1030,6 @@
       return null;
     }
 
-    detectETF() {
-      try {
-        const els = Array.from(document.querySelectorAll("div, span, td, th"));
-        for (const el of els) if (el.textContent?.trim() === "Market Cap" && (el.offsetWidth > 0 || el.offsetHeight > 0)) return "No";
-      } catch (e) { }
-      return "Yes";
-    }
-
     applyScannedData(data) {
       if (!data || !this.root) return;
       if (data.symbol) this.g("oiSymbol").value = data.symbol.toUpperCase();
@@ -1026,10 +1037,11 @@
         this.settings.optionType = data.type;
         this.root.querySelectorAll(".oi-tog").forEach(b => b.classList.toggle("active", b.dataset.type === data.type));
       }
-      if (data.etf) {
-        this.settings.etf = data.etf;
-        this.root.querySelectorAll(".oi-tog-etf").forEach(b => b.classList.toggle("active", b.dataset.etf === data.etf));
-      }
+      // Restore remembered asset type for this symbol, or leave blank
+      const sym = (data.symbol || "").toUpperCase().trim();
+      const remembered = sym ? (this.settings.symbolTypes[sym] || "") : "";
+      this.settings.etf = remembered;
+      this.g("oiStockType").value = remembered;
 
       const newBid = data.bid || 0;
       const prevBid = parseFloat(this.g("oiBid").value) || 0;
