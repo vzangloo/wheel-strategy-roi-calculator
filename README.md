@@ -32,24 +32,25 @@ indicators — all in one compact overlay.
 
 ## Features
 
-| Feature              | Detail                                                                  |
-|----------------------|-------------------------------------------------------------------------|
-| **Auto-scan**        | Detects bid/ask/strike/symbol/IV/DTE from IBKR pages                    |
-| **Vector UI**        | High-fidelity vector icons for tabs, status banners, and action buttons |
-| **Price & Premium**  | Split input for **Sell Price ($)** vs. **Premium ($)** (Auto-synced)    |
-| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Sell ROI                   |
-| **Mid Price**        | Auto-calculated from Bid and Ask prices                                 |
-| **Spread %**         | Liquidity indicator: Very Liquid / Okay / Careful / Illiquid            |
-| **DTE Hints**        | Fast income (7-14d), Sweet spot (30-45d), More premium (60d+)           |
-| **ROI Goal**         | Default 2.5% — customisable in Settings                                 |
-| **Wishlist**         | Add symbols with full option details including Mid Price                |
-| **Compact Mode**     | Collapse UI to focus on ROI results while maintaining status info       |
-| **Highlight**        | Green highlight for symbols meeting ROI goal                            |
-| **Moneyness**        | Displays OTM, ATM, ITM status and trade Risk Level                      |
-| **Export**           | Download Wishlist as CSV with customisable filenames                    |
-| **Resizable**        | Drag right edge to enlarge/shrink — persisted across sessions           |
-| **Persistent**       | Settings & Wishlist saved via `chrome.storage.local`                    |
-| **Icon-triggered**   | Extension only shows when user clicks the toolbar icon                  |
+| Feature              | Detail                                                                           |
+|----------------------|----------------------------------------------------------------------------------|
+| **Auto-scan**        | Detects bid/ask/strike/symbol/IV/DTE from IBKR pages                             |
+| **Asset Type**       | Manual dropdown: Equity, ETF, REIT, ADR, CEF, Index, BDC — remembered per symbol |
+| **Vector UI**        | High-fidelity vector icons for tabs, status banners, and action buttons          |
+| **Price & Premium**  | Split input for **Sell Price ($)** vs. **Premium ($)** (Auto-synced)             |
+| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Sell ROI                            |
+| **Mid Price**        | Auto-calculated from Bid and Ask prices                                          |
+| **Spread %**         | Liquidity indicator: Very Liquid / Okay / Careful / Illiquid                     |
+| **DTE Hints**        | Fast income (7-14d), Sweet spot (30-45d), More premium (60d+)                    |
+| **ROI Goal**         | Default 2.5% — customisable in Settings                                          |
+| **Wishlist**         | Add symbols with full option details including Mid Price                         |
+| **Compact Mode**     | Collapse UI to focus on ROI results while maintaining status info                |
+| **Highlight**        | Green highlight for symbols meeting ROI goal                                     |
+| **Moneyness**        | Displays OTM, ATM, ITM status and trade Risk Level                               |
+| **Export**           | Download Wishlist as CSV with customisable filenames                             |
+| **Resizable**        | Drag right edge to enlarge/shrink — persisted across sessions                    |
+| **Persistent**       | Settings & Wishlist saved via `chrome.storage.local`                             |
+| **Icon-triggered**   | Extension only shows when user clicks the toolbar icon                           |
 
 ---
 
@@ -148,7 +149,19 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 ---
 
-## Recent Updates (v5.1.4)
+## Recent Updates (v5.1.5)
+
+- **Asset type selector**: Replaced binary ETF Yes/No toggle with a dropdown supporting Equity, ETF, REIT, ADR, CEF,
+  Index, and BDC.
+- **Per-symbol memory**: Manually selected asset types are remembered per symbol and restored on re-scan.
+- **Capital excludes calls**: Wishlist capital total no longer includes Sell Call entries (covered calls don't require
+  additional capital).
+- **Extension icon in header**: Header logo uses the extension icon directly instead of the styled "$" badge.
+- **Calculator tab icon**: Uses the extension's own icon from the icons folder.
+
+---
+
+## Previous Updates (v5.1.4)
 
 - **Icon-triggered only**: Extension no longer auto-injects on every page. Only shows when the user clicks the toolbar
   icon.

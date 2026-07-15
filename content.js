@@ -1,6 +1,6 @@
 /**
  * Wheel Strategy ROI Calculator — IBKR Edition
- * content.js v5.1 (Refactored to Classes)
+ * content.js v5.1.5
  */
 (function () {
   "use strict";
