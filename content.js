@@ -1,6 +1,6 @@
 /**
  * Wheel Strategy ROI Calculator — IBKR Edition
- * content.js v5.1.5
+ * content.js v5.1.6
  */
 (function () {
   "use strict";
@@ -78,19 +78,28 @@
     }
   });
 
+  const roiPeriod = (dte) => {
+    if (!dte || dte <= 0) return 0;
+    return Math.ceil(dte / 30) * 30;
+  };
+
   const strategies = {
-    PUT: createStrategy("PUT", "Cash-secured ROI", "bid ÷ strike × 100", "prem ÷ strike",
-      (bid, strike, premium, qty, stockPrice) => {
+    PUT: createStrategy("PUT", "Cash-secured ROI", "bid ÷ strike ÷ DTE × period × 100", "prem ÷ strike",
+        (bid, strike, premium, qty, stockPrice, dte) => {
         if (!strike || strike <= 0) return { roi1: 0, roi2: 0, cap: 0 };
-        return { roi1: (bid / strike) * 100, roi2: premium / (strike * qty), cap: strike * 100 * qty, qty };
+          const period = roiPeriod(dte);
+          const roi1 = period > 0 ? (bid / strike / dte * period) * 100 : (bid / strike) * 100;
+          return {roi1, roi2: premium / (strike * qty), cap: strike * 100 * qty, qty};
       },
       (strike, stockPrice) => (strike < stockPrice ? { status: "OTM", risk: "Lower Risk", cls: "otm" } : { status: "ITM", risk: "Very High Risk", cls: "itm" })
     ),
-    CALL: createStrategy("CALL", "Covered ROI", "bid ÷ stock × 100", "prem ÷ stock",
-      (bid, strike, premium, qty, stockPrice) => {
+    CALL: createStrategy("CALL", "Covered ROI", "bid ÷ stock ÷ DTE × period × 100", "prem ÷ stock",
+        (bid, strike, premium, qty, stockPrice, dte) => {
         const sp = stockPrice > 0 ? stockPrice : 0;
         if (!sp || sp <= 0) return { roi1: 0, roi2: 0, cap: 0 };
-        return { roi1: (bid / sp) * 100, roi2: premium / (sp * qty), cap: strike * 100 * qty, qty };
+          const period = roiPeriod(dte);
+          const roi1 = period > 0 ? (bid / sp / dte * period) * 100 : (bid / sp) * 100;
+          return {roi1, roi2: premium / (sp * qty), cap: strike * 100 * qty, qty};
       },
       (strike, stockPrice) => (strike > stockPrice ? { status: "OTM", risk: "Lower Risk", cls: "otm" } : { status: "ITM", risk: "Very High Risk", cls: "itm" })
     )
@@ -419,8 +428,9 @@
   </div>
   <div class="oi-formula-note">
     <h3>Formulas</h3>
-    <div class="oi-formula-row"><span class="oi-formula-key">Cash-secured ROI (PUT)</span><span class="oi-formula-val">bid ÷ strike × 100 (%)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Covered ROI (CALL)</span><span class="oi-formula-val">bid ÷ stock × 100 (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Period</span><span class="oi-formula-val">ceil(DTE ÷ 30) × 30</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Cash-secured ROI (PUT)</span><span class="oi-formula-val">bid ÷ strike ÷ DTE × period × 100</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Covered ROI (CALL)</span><span class="oi-formula-val">bid ÷ stock ÷ DTE × period × 100</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Sell ROI (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Sell ROI (CALL)</span><span class="oi-formula-val">premium ÷ (stock × qty) (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Capital Required</span><span class="oi-formula-val">strike × 100 × qty</span></div>
@@ -724,9 +734,10 @@
       const premium = Utils.safe(this.g("oiPremium").value);
       const qty = Math.max(1, parseInt(this.g("oiQty").value) || 1);
       const stockPrice = Utils.safe(this.g("oiStockPrice").value);
+      const dte = parseInt(this.g("oiDte").value) || 0;
 
       const strategy = this.strategies[this.settings.optionType];
-      const res = strategy.calculate(bid, strike, premium, qty, stockPrice);
+      const res = strategy.calculate(bid, strike, premium, qty, stockPrice, dte);
 
       this.lastCalc = {
         ...res,

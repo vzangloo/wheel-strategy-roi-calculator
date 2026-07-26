@@ -57,14 +57,18 @@ indicators — all in one compact overlay.
 ## Formulas
 
 ```
-Cash-secured ROI % (PUT)  = (Bid Price ÷ Strike Price) × 100
-Covered ROI % (CALL)      = (Bid Price ÷ Stock Price) × 100
+Period                    = ceil(DTE / 30) × 30
+Cash-secured ROI % (PUT)  = (Bid ÷ Strike ÷ DTE × Period) × 100
+Covered ROI % (CALL)      = (Bid ÷ Stock Price ÷ DTE × Period) × 100
 Sell ROI % (PUT)          = Premium ÷ (Strike × Qty)
 Sell ROI % (CALL)         = Premium ÷ (Stock Price × Qty)
 Capital Required          = Strike Price × 100 × Qty
 Mid Price                 = (Bid + Ask) ÷ 2
 Spread %                  = (Ask - Bid) ÷ Mid Price × 100
 ```
+
+> ROI is normalized to the nearest 30-day period so you can compare contracts across different expirations on an equal
+> basis.
 
 ### Price & Premium Sync
 The calculator automatically syncs the per-share price and total dollar amount:
@@ -149,15 +153,16 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 ---
 
-## Recent Updates (v5.1.5)
+## Recent Updates (v5.1.6)
 
+- **Period-normalized ROI**: ROI is now normalized to the nearest 30-day period (`ceil(DTE/30) × 30`) for
+  apples-to-apples comparison across different expirations.
 - **Asset type selector**: Replaced binary ETF Yes/No toggle with a dropdown supporting Equity, ETF, REIT, ADR, CEF,
   Index, and BDC.
 - **Per-symbol memory**: Manually selected asset types are remembered per symbol and restored on re-scan.
 - **Capital excludes calls**: Wishlist capital total no longer includes Sell Call entries (covered calls don't require
   additional capital).
 - **Extension icon in header**: Header logo uses the extension icon directly instead of the styled "$" badge.
-- **Calculator tab icon**: Uses the extension's own icon from the icons folder.
 
 ---
 

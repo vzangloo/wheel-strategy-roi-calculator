@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Wheel Strategy \u2014 IBKR ROI Calculator",
-  "version": "5.1.5",
+  "version": "5.1.6",
   "description": "IBKR Wheel Strategy: Sell Put/Call ROI calculator with IV tracking, Wishlist, and capital planning.",
   "permissions": [
     "storage",
