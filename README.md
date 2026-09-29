@@ -66,6 +66,9 @@ ROC % (CALL)              = Premium ÷ (Cost Basis × Qty)              (stock c
 Cost Basis (CALL)         = Σ Buy Amount ÷ Shares held (average cost)
 If Called (CALL)          = (Call Px + Strike − Cost Basis) × 100 × Qty
 Call Px (CALL)            = Premium ÷ (100 × Qty) if premium entered/detected, otherwise Bid
+Breakeven (PUT)           = Strike − Put Px                            (Put Px = Premium ÷ (100 × Qty), else Bid)
+Breakeven (CALL)          = Cost Basis − Call Px                       (Stock Price if no cost basis)
+Cushion %                 = (Stock Price − Breakeven) ÷ Stock Price × 100
 Capital Required (PUT)    = Strike Price × 100 × Qty
 Capital Held (CALL)       = Cost Basis × 100 × Qty                    (Strike if no cost basis)
 Mid Price                 = (Bid + Ask) ÷ 2
@@ -214,6 +217,10 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 - **ROC in input grid**: Display-only "ROC" beside Premium (hover: "Return on Capital"); mirrors the results-panel ROC.
 - **Layout**: DTE moved beside Stock Price; IV Goal moved beside Implied Volatility (still shown in compact mode);
   results panel split into two columns aligned with the input grid.
+- **Breakeven**: New results row with cushion % vs. stock price; red when the stock is already below breakeven.
+  Sell Put: Strike − premium per share. Sell Call: Cost Basis (or Stock Price) − premium per share. Premium falls back
+  to bid when none is entered. Also a Wishlist column and `Breakeven ($)` CSV field (before Capital); existing rows get
+  it automatically.
 - **IV Goal warning**: Badge turns red (✗ IV < goal) when IV is below the IV Goal; purple (✓) when met.
 - **If Called & below-cost advice**: Use the entered/detected premium per share; fall back to Bid only when none.
 - **Wishlist totals**: "Capital" renamed to "Cash Required"; Premium total uses actual premium only and flags ticked

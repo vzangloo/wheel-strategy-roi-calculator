@@ -209,7 +209,17 @@
         if (!strike || strike <= 0) return { roi1: 0, roi2: 0, cap: 0 };
           const period = roiPeriod(dte);
           const roi1 = period > 0 ? (bid / strike / dte * period) * 100 : (bid / strike) * 100;
-          return {roi1, roi2: premium / (strike * qty), cap: strike * 100 * qty, qty};
+          const res = {roi1, roi2: premium / (strike * qty), cap: strike * 100 * qty, qty};
+          // Breakeven if assigned: strike − premium per share (entered premium, otherwise bid)
+          const putPx = premium > 0 ? premium / (100 * qty) : bid;
+          if (putPx > 0) {
+            res.putPx = putPx;
+            res.putPxSrc = premium > 0 ? "premium" : "bid";
+            res.breakeven = strike - putPx;
+            // Cushion: how far the stock can fall before the assigned position loses money
+            res.cushionPct = stockPrice > 0 ? ((stockPrice - res.breakeven) / stockPrice) * 100 : null;
+          }
+          return res;
       },
       (strike, stockPrice) => (strike < stockPrice ? { status: "OTM", risk: "Lower Risk", cls: "otm" } : { status: "ITM", risk: "Very High Risk", cls: "itm" })
     ),
@@ -226,12 +236,19 @@
                 cap: cost ? cost * 100 * qty : strike * 100 * qty,
                 qty, costBasis: cost || null,
             };
+            // Per-share call premium: actual premium if entered/detected, otherwise the bid
+            const usePrem = premium > 0;
+            const callPx = usePrem ? premium / (100 * qty) : bid;
+            res.callPx = callPx;
+            res.callPxSrc = usePrem ? "premium" : "bid";
+            if (callPx > 0) {
+                // Breakeven: share cost (cost basis, else stock price) − call premium per share
+                res.breakeven = base - callPx;
+                res.beBaseName = cost ? "Cost" : "Stock";
+                res.beBase = base;
+                res.cushionPct = stockPrice > 0 ? ((stockPrice - res.breakeven) / stockPrice) * 100 : null;
+            }
             if (cost && strike > 0) {
-                // Per-share call premium: actual premium if entered/detected, otherwise the bid
-                const usePrem = premium > 0;
-                const callPx = usePrem ? premium / (100 * qty) : bid;
-                res.callPx = callPx;
-                res.callPxSrc = usePrem ? "premium" : "bid";
                 // If-called: premium + (strike − cost) per share
                 res.ifCalled = (callPx + strike - cost) * 100 * qty;
                 res.ifCalledPct = ((callPx + strike - cost) / cost) * 100;
@@ -523,6 +540,7 @@
       <div class="oi-rrow"><span class="oi-rk">Moneyness</span><span id="oiMoneyStatus" class="oi-money-badge">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Spread %</span><span id="oiSpreadInd" class="oi-money-badge">—</span></div>
       <div class="oi-rrow oi-hidden" id="oiCalledRow"><span class="oi-rk">If Called</span><span class="oi-money-badge" id="oiIfCalled">—</span></div>
+      <div class="oi-rrow oi-hidden" id="oiBreakevenRow"><span class="oi-rk">Breakeven</span><span class="oi-money-badge" id="oiBreakeven">—</span></div>
       <div class="oi-rrow"><span class="oi-rk" id="oiCapLbl">Capital Required</span><span class="oi-rv" id="oiCap">—</span></div>
     </div>
   </div>
@@ -602,6 +620,8 @@
     <div class="oi-formula-row"><span class="oi-formula-key">If Called (CALL)</span><span class="oi-formula-val">(prem/sh or bid + strike − cost) × 100 × qty</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">ROC (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">ROC (CALL)</span><span class="oi-formula-val">premium ÷ (cost or stock × qty) (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Breakeven (PUT)</span><span class="oi-formula-val">strike − prem/sh or bid · cushion = (stock − BE) ÷ stock</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Breakeven (CALL)</span><span class="oi-formula-val">cost (or stock) − prem/sh or bid</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Capital Required</span><span class="oi-formula-val">strike × 100 × qty</span></div>
   </div>
 </div>`;
@@ -1030,6 +1050,23 @@
             calledRow.classList.add("oi-hidden");
         }
 
+      // Breakeven & cushion — Put: strike − premium; Call: cost basis (or stock) − premium
+      const beRow = g("oiBreakevenRow");
+      if (beRow) {
+        if (r.breakeven != null) {
+          const be = g("oiBreakeven");
+          const cushion = r.cushionPct != null ? ` · ${Utils.pct(r.cushionPct)} cushion` : "";
+          be.textContent = `${Utils.fmt$(r.breakeven)}${cushion}`;
+          be.className = "oi-money-badge " + (r.cushionPct != null && r.cushionPct < 0 ? "itm" : "");
+          be.title = this.settings.optionType === "CALL"
+            ? `${r.beBaseName} ${Utils.fmt$(r.beBase)} − ${Utils.fmt$(r.callPx)} ${r.callPxSrc}/share`
+            : `Strike ${Utils.fmt$(r.strike)} − ${Utils.fmt$(r.putPx)} ${r.putPxSrc}/share`;
+          beRow.classList.remove("oi-hidden");
+        } else {
+          beRow.classList.add("oi-hidden");
+        }
+      }
+
       const shortName1 = this.settings.optionType === "CALL" ? "Cov ROI" : "Cash ROI";
       const show1 = r.bid > 0 && r.strike > 0 && r.roi1 > 0 && isFinite(r.roi1);
       if (show1) {
@@ -1084,6 +1121,7 @@
         id: Date.now(), symbol: sym, etf: this.settings.etf, type: this.settings.optionType,
         bid: r.bid, strike: r.strike, premium: r.premium, price: r.price,
         qty: r.qty, roi1: r.roi1, roi2: r.roi2, cap: r.cap,
+        breakeven: r.breakeven != null ? r.breakeven : null,
           costBasis: r.costBasis || null,
         iv: parseFloat(this.g("oiIV").value) || null,
         stockPrice: parseFloat(this.g("oiStockPrice").value) || null,
@@ -1111,10 +1149,13 @@
           );
           if (!res.roi1 && !res.roi2 && !res.cap) return false; // not enough data — keep stored values
           const same = (a, b) => Math.abs((+a || 0) - (+b || 0)) < 1e-9;
-          if (same(e.roi1, res.roi1) && same(e.roi2, res.roi2) && same(e.cap, res.cap)) return false;
+          const be = res.breakeven != null ? res.breakeven : null; // Sell Put only
+          const sameBe = (e.breakeven == null && be == null) || (e.breakeven != null && be != null && same(e.breakeven, be));
+          if (same(e.roi1, res.roi1) && same(e.roi2, res.roi2) && same(e.cap, res.cap) && sameBe) return false;
           e.roi1 = res.roi1;
           e.roi2 = res.roi2;
           e.cap = res.cap;
+          e.breakeven = be;
           return true;
       }
 
@@ -1156,6 +1197,7 @@
           <td>$${e.price != null ? (+e.price).toFixed(2) : "—"}</td>
           <td class="oi-prem-col">$${(+e.premium).toFixed(2)}</td>
           <td class="oi-roi-cell">${(+e.roi2).toFixed(2)}%</td>
+          <td>${e.breakeven != null ? Utils.fmt$(+e.breakeven) : "—"}</td>
           <td>${Utils.fmt$(e.cap)}</td>
           <td>${e.addedAt}</td>
           <td><button class="oi-rm" data-rm="${e.id}" title="Remove"></button></td>
@@ -1167,7 +1209,7 @@
         <thead><tr>
           <th><input type="checkbox" data-chkall="1" ${allSelected ? "checked" : ""}></th>
           <th>Sym</th><th>Class</th><th>Stock$</th><th>Cost$</th><th>IV</th><th>Type</th><th class="oi-strike-col">Strike</th><th>Bid</th>
-          <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>ROC</th><th>Capital</th><th>Date</th><th></th>
+          <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>ROC</th><th>Breakeven</th><th>Capital</th><th>Date</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
@@ -1234,6 +1276,7 @@
         "Sell Price ($)": (+(e.price || 0)).toFixed(2),
         "Premium ($)": (+(e.premium || 0)).toFixed(2),
           "ROC (%)": (+(e.roi2 || 0)).toFixed(2),
+        "Breakeven ($)": e.breakeven != null ? (+e.breakeven).toFixed(2) : "",
         "Capital ($)": (+(e.cap || 0)).toFixed(2),
         "Added": e.addedAt,
       }));
