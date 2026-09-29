@@ -429,7 +429,8 @@
   box-shadow: none !important;
 }
 
-#__option-roi-root__ #oiMidPrice {
+#__option-roi-root__ #oiMidPrice,
+#__option-roi-root__ #oiRoc {
   text-align: center !important;
 }
 
@@ -531,9 +532,12 @@
 }
 
 /* ── Result box ──────────────────────────────────────────────────────────────── */
+/* Two equal columns with the same 8px gap as .oi-grid; symmetric padding keeps the
+   right column (ROI Goals list) aligned with the input grid's right column */
 #__option-roi-root__ .oi-result {
-  display: flex !important;
-  gap: 14px !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  column-gap: 8px !important;
   align-items: stretch !important;
   background: var(--surf2) !important;
   border: 1px solid var(--bord) !important;
@@ -544,8 +548,9 @@
 
 #__option-roi-root__ .oi-roi-cols {
   display: flex !important;
-  flex-shrink: 0 !important;
   align-items: center !important;
+  justify-content: space-around !important;
+  min-width: 0 !important;
 }
 
 #__option-roi-root__ .oi-roi-block {
@@ -625,7 +630,7 @@
 }
 
 #__option-roi-root__ .oi-result-rows {
-  flex: 1 !important;
+  min-width: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 6px !important;
@@ -731,6 +736,19 @@
   white-space: nowrap !important;
 }
 
+/* IV Goal display cell (beside Implied Volatility) — same height as inputs */
+#__option-roi-root__ .oi-iv-goal-cell {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 31px !important;
+}
+
+#__option-roi-root__ .oi-iv-goal-ind:not(.hit):not(.miss) {
+  color: var(--text) !important;
+  font-size: 12px !important;
+}
+
 #__option-roi-root__ .oi-iv-goal-ind.hit {
   background: rgba(188, 140, 255, .12) !important;
   color: var(--purple) !important;
@@ -738,9 +756,13 @@
 }
 
 #__option-roi-root__ .oi-iv-goal-ind.miss {
-  background: rgba(125, 133, 144, .1) !important;
-  color: var(--muted) !important;
-  border: 1px solid rgba(125, 133, 144, .2) !important;
+  background: rgba(248, 81, 73, .08) !important;
+  color: var(--warn) !important;
+  border: 1px solid rgba(248, 81, 73, .2) !important;
+}
+
+#__option-roi-root__.oi-light .oi-iv-goal-ind.miss {
+  background: rgba(207, 34, 46, .06) !important;
 }
 
 /* ── Below-cost call advice ──────────────────────────────────────────────────── */
@@ -1596,6 +1618,7 @@
 }
 
 #__option-roi-root__.oi-minimized .oi-result {
+  display: flex !important;
   margin-bottom: 0 !important;
   padding: 0 !important;
   gap: 0 !important;
@@ -1629,6 +1652,15 @@
 
 #__option-roi-root__.oi-minimized .oi-rrow {
   font-size: 10px !important;
+}
+
+/* Rows shown only in compact mode (e.g. IV Goal, which lives in the input grid otherwise) */
+#__option-roi-root__ .oi-rrow.oi-compact-only {
+  display: none !important;
+}
+
+#__option-roi-root__.oi-minimized .oi-rrow.oi-compact-only {
+  display: flex !important;
 }
 
 #__option-roi-root__.oi-minimized .oi-actions {

@@ -227,16 +227,21 @@
                 qty, costBasis: cost || null,
             };
             if (cost && strike > 0) {
+                // Per-share call premium: actual premium if entered/detected, otherwise the bid
+                const usePrem = premium > 0;
+                const callPx = usePrem ? premium / (100 * qty) : bid;
+                res.callPx = callPx;
+                res.callPxSrc = usePrem ? "premium" : "bid";
                 // If-called: premium + (strike − cost) per share
-                res.ifCalled = (bid + strike - cost) * 100 * qty;
-                res.ifCalledPct = ((bid + strike - cost) / cost) * 100;
+                res.ifCalled = (callPx + strike - cost) * 100 * qty;
+                res.ifCalledPct = ((callPx + strike - cost) / cost) * 100;
                 if (strike < cost) {
                     // Below-cost call: breakdown, breakeven, and calls needed to offset the gap
                     res.belowCost = {
                         shareLoss: (strike - cost) * 100 * qty,
-                        premium: bid * 100 * qty,
-                        breakeven: cost - bid,
-                        callsToRecover: bid > 0 ? Math.ceil((cost - strike) / bid) : null,
+                        premium: callPx * 100 * qty,
+                        breakeven: cost - callPx,
+                        callsToRecover: callPx > 0 ? Math.ceil((cost - strike) / callPx) : null,
                     };
                 }
             }
@@ -417,9 +422,17 @@
         </div>
       </div>
     </div>
-    <div class="oi-field">
-      <label class="oi-lbl">Stock Price ($)</label>
-      <input class="oi-inp" type="number" id="oiStockPrice" placeholder="0.00" step="0.01" min="0"/>
+    <div class="oi-field oi-field-pair">
+      <div class="oi-pair">
+        <div class="oi-pair-item">
+          <label class="oi-lbl">DTE <span id="oiDteHint" style="color:var(--accent);text-transform:none;margin-left:2px;"></span></label>
+          <input class="oi-inp" type="number" id="oiDte" placeholder="0" step="1" min="0"/>
+        </div>
+        <div class="oi-pair-item">
+          <label class="oi-lbl">Stock Price ($)</label>
+          <input class="oi-inp" type="number" id="oiStockPrice" placeholder="0.00" step="0.01" min="0"/>
+        </div>
+      </div>
     </div>
     <div class="oi-field">
       <label class="oi-lbl">Option Type</label>
@@ -428,9 +441,17 @@
         <button class="oi-tog" data-type="CALL">Sell Call</button>
       </div>
     </div>
-    <div class="oi-field">
-      <label class="oi-lbl">Implied Volatility (%)</label>
-      <input class="oi-inp" type="number" id="oiIV" placeholder="0.00" step="0.1" min="0"/>
+    <div class="oi-field oi-field-pair">
+      <div class="oi-pair">
+        <div class="oi-pair-item">
+          <label class="oi-lbl">Implied Volatility (%)</label>
+          <input class="oi-inp" type="number" id="oiIV" placeholder="0.00" step="0.1" min="0"/>
+        </div>
+        <div class="oi-pair-item">
+          <label class="oi-lbl">IV Goal</label>
+          <div class="oi-iv-goal-cell"><span class="oi-iv-goal-ind" id="oiIvGoalInd">—</span></div>
+        </div>
+      </div>
     </div>
     <div class="oi-field oi-field-pair">
       <div class="oi-pair">
@@ -459,20 +480,20 @@
     <div class="oi-field oi-field-pair">
       <div class="oi-pair">
         <div class="oi-pair-item">
-          <label class="oi-lbl">DTE <span id="oiDteHint" style="color:var(--accent);text-transform:none;margin-left:2px;"></span></label>
-          <input class="oi-inp" type="number" id="oiDte" placeholder="0" step="1" min="0"/>
-        </div>
-        <div class="oi-pair-item">
           <label class="oi-lbl">Quantity</label>
           <input class="oi-inp" type="number" id="oiQty" placeholder="1" step="1" min="1" value="1"/>
+        </div>
+        <div class="oi-pair-item">
+          <label class="oi-lbl" style="color:var(--gold);">Sell Price ($)</label>
+          <input class="oi-inp" type="number" id="oiPrice" placeholder="0.00" step="0.01" min="0"/>
         </div>
       </div>
     </div>
     <div class="oi-field oi-field-pair">
       <div class="oi-pair">
         <div class="oi-pair-item">
-          <label class="oi-lbl" style="color:var(--gold);">Sell Price ($)</label>
-          <input class="oi-inp" type="number" id="oiPrice" placeholder="0.00" step="0.01" min="0"/>
+          <label class="oi-lbl" title="Return on Capital" style="cursor:help;">ROC</label>
+          <div class="oi-mid-value" id="oiRoc" title="Return on Capital">—</div>
         </div>
         <div class="oi-pair-item">
           <label class="oi-lbl" style="color:var(--gold);">Premium ($)</label>
@@ -492,13 +513,13 @@
       <div class="oi-roi-divider"></div>
       <div class="oi-roi-block">
         <div class="oi-roi-num oi-roi2" id="oiRoi2">—</div>
-        <div class="oi-roi-lbl" id="oiRoi2Lbl">Premium ROI</div>
+        <div class="oi-roi-lbl" id="oiRoi2Lbl">ROC</div>
         <div class="oi-roi-sub" id="oiRoi2Sub">prem ÷ strike</div>
       </div>
     </div>
     <div class="oi-result-rows">
-      <div class="oi-rrow"><span class="oi-rk">ROI Goals</span><div class="oi-goals" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;"><span class="oi-goal" id="oiGoalInd"></span><span class="oi-goal" id="oiGoalInd2"></span></div></div>
-      <div class="oi-rrow"><span class="oi-rk">IV Goal</span><span class="oi-iv-goal-ind" id="oiIvGoalInd"></span></div>
+      <div class="oi-rrow"><span class="oi-rk">ROI Goals</span><div class="oi-goals" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;"><span class="oi-goal" id="oiGoalInd"></span></div></div>
+      <div class="oi-rrow oi-compact-only"><span class="oi-rk">IV Goal</span><span class="oi-iv-goal-ind" id="oiIvGoalIndMini">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Moneyness</span><span id="oiMoneyStatus" class="oi-money-badge">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Spread %</span><span id="oiSpreadInd" class="oi-money-badge">—</span></div>
       <div class="oi-rrow oi-hidden" id="oiCalledRow"><span class="oi-rk">If Called</span><span class="oi-money-badge" id="oiIfCalled">—</span></div>
@@ -578,9 +599,9 @@
     <div class="oi-formula-row"><span class="oi-formula-key">Cash-secured ROI (PUT)</span><span class="oi-formula-val">bid ÷ strike ÷ DTE × period × 100</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Covered ROI (CALL)</span><span class="oi-formula-val">bid ÷ cost (or stock) ÷ DTE × period × 100</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Cost Basis (CALL)</span><span class="oi-formula-val">Σ buy amount ÷ shares (avg cost)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">If Called (CALL)</span><span class="oi-formula-val">(bid + strike − cost) × 100 × qty</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Premium ROI (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Premium ROI (CALL)</span><span class="oi-formula-val">premium ÷ (cost or stock × qty) (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">If Called (CALL)</span><span class="oi-formula-val">(prem/sh or bid + strike − cost) × 100 × qty</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">ROC (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">ROC (CALL)</span><span class="oi-formula-val">premium ÷ (cost or stock × qty) (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Capital Required</span><span class="oi-formula-val">strike × 100 × qty</span></div>
   </div>
 </div>`;
@@ -933,14 +954,17 @@
 
       // IV Goal
       const ivVal = parseFloat(g("oiIV").value);
-      const ivGind = g("oiIvGoalInd");
-      if (!isNaN(ivVal) && ivVal > 0) {
-        const ivHit = ivVal >= this.settings.ivGoal;
-        ivGind.textContent = ivHit ? "✓ IV ≥" + this.settings.ivGoal + "%" : "✗ IV <" + this.settings.ivGoal + "%";
-        ivGind.className = "oi-iv-goal-ind " + (ivHit ? "hit" : "miss");
-      } else {
-        ivGind.textContent = ""; ivGind.className = "oi-iv-goal-ind";
-      }
+      // Same badge in the input grid and in the compact-mode results row
+      const ivHit = !isNaN(ivVal) && ivVal > 0 ? ivVal >= this.settings.ivGoal : null;
+      [g("oiIvGoalInd"), g("oiIvGoalIndMini")].forEach(ivGind => {
+        if (!ivGind) return;
+        if (ivHit !== null) {
+          ivGind.textContent = ivHit ? "✓ IV ≥" + this.settings.ivGoal + "%" : "✗ IV <" + this.settings.ivGoal + "%";
+          ivGind.className = "oi-iv-goal-ind " + (ivHit ? "hit" : "miss");
+        } else {
+          ivGind.textContent = "—"; ivGind.className = "oi-iv-goal-ind";
+        }
+      });
 
       // DTE Hint
       const dteVal = parseInt(this.g("oiDte").value);
@@ -952,16 +976,20 @@
         else dteHint.textContent = "";
       }
 
-      const r1 = g("oiRoi1"), r2 = g("oiRoi2"), cap = g("oiCap"), si = g("oiGoalInd"), si2 = g("oiGoalInd2");
+      const r1 = g("oiRoi1"), r2 = g("oiRoi2"), cap = g("oiCap"), si = g("oiGoalInd");
+      const roc = g("oiRoc");
       if (!r) {
-        [r1, r2, cap].forEach(el => el.textContent = "—");
+        [r1, r2, cap, roc].forEach(el => el && (el.textContent = "—"));
         r1.className = "oi-roi-num"; r2.className = "oi-roi-num oi-roi2";
-        si.className = si2.className = "oi-goal oi-hidden"; return;
+        si.className = "oi-goal oi-hidden"; return;
       }
 
-      const hit1 = r.roi1 >= this.settings.roiGoal, hit2 = r.roi2 >= this.settings.roiGoal;
+      const hit1 = r.roi1 >= this.settings.roiGoal;
       r1.textContent = Utils.pct(r.roi1); r1.className = "oi-roi-num " + (hit1 ? "hit" : r.roi1 > 0 ? "pos" : "");
-      r2.textContent = Utils.pct(r.roi2); r2.className = "oi-roi-num oi-roi2 " + (hit2 ? "hit" : r.roi2 > 0 ? "pos" : "");
+      // ROC is not an ROI — not checked against the ROI Goal
+      r2.textContent = Utils.pct(r.roi2); r2.className = "oi-roi-num oi-roi2 " + (r.roi2 > 0 ? "pos" : "");
+      // ROC = Premium ÷ capital (strike cash for CSP, stock capital for CC); grid box mirrors the big ROC number
+      if (roc) roc.textContent = Utils.pct(r.roi2);
       cap.textContent = Utils.fmt$(r.cap);
 
       const capLbl = g("oiCapLbl");
@@ -1009,11 +1037,6 @@
         si.className = "oi-goal " + (hit1 ? "hit" : "miss");
       } else si.className = "oi-goal oi-hidden";
 
-      const show2 = r.bid > 0 && r.strike > 0 && r.roi2 > 0 && isFinite(r.roi2);
-      if (show2) {
-          si2.textContent = (hit2 ? "✓ " : "✗ ") + "Prem ROI" + (hit2 ? " (" + this.settings.roiGoal + "%)" : " −" + Math.abs(this.settings.roiGoal - r.roi2).toFixed(2) + "%");
-        si2.className = "oi-goal " + (hit2 ? "hit" : "miss");
-      } else si2.className = "oi-goal oi-hidden";
 
       // Moneyness
       const ms = g("oiMoneyStatus");
@@ -1036,8 +1059,8 @@
 
           const signed = n => (n < 0 ? "−" : "+") + Utils.fmt$(Math.abs(n));
           const calls = b.callsToRecover != null
-              ? `~${b.callsToRecover} call${b.callsToRecover === 1 ? "" : "s"} at ${Utils.fmt$(r.bid)} bid`
-              : "— (no bid)";
+              ? `~${b.callsToRecover} call${b.callsToRecover === 1 ? "" : "s"} at ${Utils.fmt$(r.callPx)} ${r.callPxSrc}`
+              : "— (no premium or bid)";
           const row = (k, v, cls = "") => `<div class="oi-advice-row"><span>${k}</span><span class="${cls}">${v}</span></div>`;
 
           box.innerHTML = `
@@ -1132,7 +1155,7 @@
           <td>${e.qty != null ? e.qty : 1}</td>
           <td>$${e.price != null ? (+e.price).toFixed(2) : "—"}</td>
           <td class="oi-prem-col">$${(+e.premium).toFixed(2)}</td>
-          <td class="oi-roi-cell ${(+e.roi2) >= this.settings.roiGoal ? "hit" : "miss"}">${(+e.roi2).toFixed(2)}%</td>
+          <td class="oi-roi-cell">${(+e.roi2).toFixed(2)}%</td>
           <td>${Utils.fmt$(e.cap)}</td>
           <td>${e.addedAt}</td>
           <td><button class="oi-rm" data-rm="${e.id}" title="Remove"></button></td>
@@ -1144,7 +1167,7 @@
         <thead><tr>
           <th><input type="checkbox" data-chkall="1" ${allSelected ? "checked" : ""}></th>
           <th>Sym</th><th>Class</th><th>Stock$</th><th>Cost$</th><th>IV</th><th>Type</th><th class="oi-strike-col">Strike</th><th>Bid</th>
-          <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>Prem ROI</th><th>Capital</th><th>Date</th><th></th>
+          <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>ROC</th><th>Capital</th><th>Date</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
@@ -1210,7 +1233,7 @@
         "Qty": e.qty,
         "Sell Price ($)": (+(e.price || 0)).toFixed(2),
         "Premium ($)": (+(e.premium || 0)).toFixed(2),
-          "Premium ROI (%)": (+(e.roi2 || 0)).toFixed(2),
+          "ROC (%)": (+(e.roi2 || 0)).toFixed(2),
         "Capital ($)": (+(e.cap || 0)).toFixed(2),
         "Added": e.addedAt,
       }));

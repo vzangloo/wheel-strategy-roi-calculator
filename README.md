@@ -38,11 +38,12 @@ indicators — all in one compact overlay.
 | **Asset Type**       | Manual dropdown: Equity, ETF, REIT, ADR, CEF, Index, BDC — remembered per symbol           |
 | **Vector UI**        | High-fidelity vector icons for tabs, status banners, and action buttons                    |
 | **Price & Premium**  | Split input for **Sell Price ($)** vs. **Premium ($)** (Auto-synced)                       |
-| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Premium ROI                                   |
+| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & ROC (Return on Capital)                      |
 | **Mid Price**        | Auto-calculated from Bid and Ask prices                                                    |
 | **Spread %**         | Very Liquid (< 5%) / Okay (< 10%) / Tradable – Careful (< 20%) / Illiquid – Avoid (≥ 20%)  |
 | **DTE Hints**        | Fast income (7-14d), Sweet spot (30-45d), More premium (60d+)                              |
-| **ROI Goal**         | Default 2.5% — customisable in Settings                                                    |
+| **ROI Goal**         | Default 2.5% — checks Cash-secured / Covered ROI only (not ROC); customisable in Settings  |
+| **IV Goal**          | Badge beside Implied Volatility: purple ✓ when met, red ✗ when below; customisable        |
 | **Wishlist**         | Add symbols with full option details including Mid Price and Cost Basis                    |
 | **Wishlist Totals**  | Cash Required (Sell Puts), actual Premium, and ROI for ticked rows                         |
 | **Compact Mode**     | Collapse UI to focus on ROI results while maintaining status info                          |
@@ -60,10 +61,11 @@ indicators — all in one compact overlay.
 Period                    = ceil(DTE / 30) × 30
 Cash-secured ROI % (PUT)  = (Bid ÷ Strike ÷ DTE × Period) × 100
 Covered ROI % (CALL)      = (Bid ÷ Cost Basis ÷ DTE × Period) × 100   (Stock Price if no cost basis)
-Premium ROI % (PUT)       = Premium ÷ (Strike × Qty)
-Premium ROI % (CALL)      = Premium ÷ (Cost Basis × Qty)              (Stock Price if no cost basis)
+ROC % (PUT)               = Premium ÷ (Strike × Qty)                  (cash secured)
+ROC % (CALL)              = Premium ÷ (Cost Basis × Qty)              (stock capital; Stock Price if no cost basis)
 Cost Basis (CALL)         = Σ Buy Amount ÷ Shares held (average cost)
-If Called (CALL)          = (Bid + Strike − Cost Basis) × 100 × Qty
+If Called (CALL)          = (Call Px + Strike − Cost Basis) × 100 × Qty
+Call Px (CALL)            = Premium ÷ (100 × Qty) if premium entered/detected, otherwise Bid
 Capital Required (PUT)    = Strike Price × 100 × Qty
 Capital Held (CALL)       = Cost Basis × 100 × Qty                    (Strike if no cost basis)
 Mid Price                 = (Bid + Ask) ÷ 2
@@ -71,7 +73,8 @@ Spread %                  = (Ask - Bid) ÷ Mid Price × 100
 ```
 
 > Cash-secured / Covered ROI is a quick check at the current bid, scaled to the 30-day bucket containing the DTE
-> (1–30 → 30, 31–60 → 60, …). Premium ROI is the actual return on the premium you enter, for this trade only.
+> (1–30 → 30, 31–60 → 60, …). ROC (Return on Capital) is the actual return on the premium you enter, for this trade
+> only — shown in the results panel and beside Premium in the input grid.
 
 ### Wishlist Totals (ticked rows)
 
@@ -106,10 +109,10 @@ Shown when Strike < Cost Basis:
 
 ```
 Share loss          = (Strike − Cost) × 100 × Qty
-Premium             = Bid × 100 × Qty
+Premium             = Call Px × 100 × Qty
 Net if called       = Share loss + Premium
-Breakeven strike    = Cost − Bid
-Calls to offset gap = ceil((Cost − Strike) ÷ Bid)   (assumes same premium each cycle)
+Breakeven strike    = Cost − Call Px
+Calls to offset gap = ceil((Cost − Strike) ÷ Call Px)   (assumes same premium each cycle)
 ```
 
 ### Price & Premium Sync
@@ -197,16 +200,22 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 ## Recent Updates (v5.1.7)
 
 - **Cost basis for Sell Call**: Detects assigned shares from the IBKR Trades table (Buy/Sell, average-cost method);
-  Covered ROI, Premium ROI, and Capital Held now use cost basis.
+  Covered ROI, ROC, and Capital Held now use cost basis.
 - **If Called**: Shows total return ($ and %) if shares are called away at the strike.
 - **Below-cost call advice**: When strike < cost, shows share loss, premium offset, net, breakeven strike, and calls
   needed to offset the gap.
 - **Cost Basis warning**: Shown above Covered ROI with ⚠ when the strike is below cost (loss if called) or shares don't
   cover the contract quantity.
 - **Wishlist & CSV**: New Cost$ column and `Cost Basis ($)` export field.
-- **Wishlist ROI aligned**: ROI, Premium ROI, and Capital are recalculated for every row with the calculator's formula (
+- **Wishlist ROI aligned**: ROI, ROC, and Capital are recalculated for every row with the calculator's formula (
   period-normalized, cost basis for calls); older entries are updated automatically.
-- **Renamed**: "Sell ROI" → "Premium ROI" (goal chip "Act ROI" → "Prem ROI"; CSV column `Premium ROI (%)`).
+- **Renamed**: "Sell ROI" → "ROC" (Return on Capital) — results panel, Wishlist column, CSV column `ROC (%)`.
+- **ROC not goal-checked**: ROI Goals shows only Cash-secured / Covered ROI; ROC has no goal chip or goal colouring.
+- **ROC in input grid**: Display-only "ROC" beside Premium (hover: "Return on Capital"); mirrors the results-panel ROC.
+- **Layout**: DTE moved beside Stock Price; IV Goal moved beside Implied Volatility (still shown in compact mode);
+  results panel split into two columns aligned with the input grid.
+- **IV Goal warning**: Badge turns red (✗ IV < goal) when IV is below the IV Goal; purple (✓) when met.
+- **If Called & below-cost advice**: Use the entered/detected premium per share; fall back to Bid only when none.
 - **Wishlist totals**: "Capital" renamed to "Cash Required"; Premium total uses actual premium only and flags ticked
   rows without one.
 
