@@ -19,9 +19,8 @@ indicators — all in one compact overlay.
 - Displays **moneyness** (OTM/ATM/ITM) with risk level
 - Syncs **Sell Price** and **Premium** automatically
 - Saves entries to a **Wishlist** with ROI/IV goal highlighting
-- Tracks **total capital**, **total premium**, and **portfolio ROI** across selected entries
+- Tracks **cash required**, **total premium**, and **ROI** across selected entries
 - Exports your Wishlist to **CSV**
-- **Resizable** — drag to enlarge the window for better readability
 - **Compact Mode** — minimize to a floating ROI display
 
 **Privacy-first:** 100% local. No data leaves your machine. No accounts, no tracking, no servers.
@@ -41,15 +40,15 @@ indicators — all in one compact overlay.
 | **Price & Premium**  | Split input for **Sell Price ($)** vs. **Premium ($)** (Auto-synced)                       |
 | **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Premium ROI                                   |
 | **Mid Price**        | Auto-calculated from Bid and Ask prices                                                    |
-| **Spread %**         | Liquidity indicator: Very Liquid / Okay / Careful / Illiquid                               |
+| **Spread %**         | Very Liquid (< 5%) / Okay (< 10%) / Tradable – Careful (< 20%) / Illiquid – Avoid (≥ 20%)  |
 | **DTE Hints**        | Fast income (7-14d), Sweet spot (30-45d), More premium (60d+)                              |
 | **ROI Goal**         | Default 2.5% — customisable in Settings                                                    |
-| **Wishlist**         | Add symbols with full option details including Mid Price                                   |
+| **Wishlist**         | Add symbols with full option details including Mid Price and Cost Basis                    |
+| **Wishlist Totals**  | Cash Required (Sell Puts), actual Premium, and ROI for ticked rows                         |
 | **Compact Mode**     | Collapse UI to focus on ROI results while maintaining status info                          |
-| **Highlight**        | Green highlight for symbols meeting ROI goal                                               |
+| **Highlight**        | Wishlist rows: gold = ROI & IV goals met, green = ROI goal only, purple = IV goal only     |
 | **Moneyness**        | Displays OTM, ATM, ITM status and trade Risk Level                                         |
 | **Export**           | Download Wishlist as CSV with customisable filenames                                       |
-| **Resizable**        | Drag right edge to enlarge/shrink — persisted across sessions                              |
 | **Persistent**       | Settings & Wishlist saved via `chrome.storage.local`                                       |
 | **Icon-triggered**   | Extension only shows when user clicks the toolbar icon                                     |
 
@@ -71,8 +70,19 @@ Mid Price                 = (Bid + Ask) ÷ 2
 Spread %                  = (Ask - Bid) ÷ Mid Price × 100
 ```
 
-> ROI is normalized to the nearest 30-day period so you can compare contracts across different expirations on an equal
-> basis.
+> Cash-secured / Covered ROI is a quick check at the current bid, scaled to the 30-day bucket containing the DTE
+> (1–30 → 30, 31–60 → 60, …). Premium ROI is the actual return on the premium you enter, for this trade only.
+
+### Wishlist Totals (ticked rows)
+
+```
+Cash Required = Σ Capital Required of ticked Sell Puts   (Sell Calls excluded — shares already owned)
+Premium       = Σ Premium ($) entered on ticked rows     (actual premium only, no estimate)
+ROI %         = Premium ÷ Cash Required × 100
+```
+
+- Rows saved without a premium count as $0 and are flagged: "(N rows without premium)"
+- Budget warning shows when Cash Required > Capital ($) in Settings
 
 ### Cost Basis Detection (Sell Call)
 
@@ -141,10 +151,9 @@ This extension works out-of-the-box on **Chrome, Microsoft Edge, Brave, Opera**,
 3. **Adjust** bid, ask, strike, premium, quantity as needed
 4. **Calculate** — ROI, Mid-Price, Spread %, and breakdown display instantly
 5. **Add to Wishlist** — saves symbol with all details
-6. **Wishlist tab** — rows with ROI ≥ goal are highlighted; select rows to see total capital, premium & ROI
+6. **Wishlist tab** — rows meeting ROI/IV goals are highlighted; tick rows to see Cash Required, Premium & ROI
 7. **Export CSV** — downloads your full Wishlist
 8. **Compact Mode** — Click the "−" button to minimize the UI
-9. **Resize** — Drag the right edge to make the window larger or smaller
 
 ---
 
@@ -152,7 +161,7 @@ This extension works out-of-the-box on **Chrome, Microsoft Edge, Brave, Opera**,
 
 | Setting           | Default         | Description                                             |
 |-------------------|-----------------|---------------------------------------------------------|
-| Capital ($)       | 10000           | Budget — warn if total capital required exceeds this    |
+| Capital ($)       | 10000           | Budget — warn if Wishlist Cash Required exceeds this    |
 | ROI Goal          | 2.5%            | Highlight rows with Cash-secured/Covered ROI ≥ this     |
 | IV Goal           | 40%             | Highlight rows with IV ≥ this                           |
 | Auto-scan         | On              | Auto-detect IBKR data. Disable to use Scan button only. |
@@ -198,6 +207,8 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 - **Wishlist ROI aligned**: ROI, Premium ROI, and Capital are recalculated for every row with the calculator's formula (
   period-normalized, cost basis for calls); older entries are updated automatically.
 - **Renamed**: "Sell ROI" → "Premium ROI" (goal chip "Act ROI" → "Prem ROI"; CSV column `Premium ROI (%)`).
+- **Wishlist totals**: "Capital" renamed to "Cash Required"; Premium total uses actual premium only and flags ticked
+  rows without one.
 
 ---
 

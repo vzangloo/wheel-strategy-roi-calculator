@@ -299,7 +299,7 @@
             roiGoal: this.roiGoal, ivGoal: this.ivGoal, capital: this.capital,
             autoScan: this.autoScan, optionType: this.optionType, theme: this.theme, etf: this.etf,
             wishlist: this.wishlist, pos: this.pos, lastValues: this.lastValues,
-            csvName: this.csvName, width: this.width, symbolTypes: this.symbolTypes,
+              csvName: this.csvName, symbolTypes: this.symbolTypes,
           }
         });
       }, 500);
@@ -526,7 +526,7 @@
   </div>
   <div id="oiWlBody"></div>
   <div class="oi-cap-bar">
-    <span class="oi-cap-bar-lbl">Capital:</span>
+    <span class="oi-cap-bar-lbl">Cash Required:</span>
     <span class="oi-cap-bar-val" id="oiCapTotal">—</span>
     <span class="oi-cap-bar-lbl" style="margin-left:12px!important;">Premium:</span>
     <span class="oi-cap-bar-val" id="oiPremTotal">—</span>
@@ -1159,17 +1159,22 @@
       const totalRoi = total > 0 ? (totalPrem / total) * 100 : 0;
       const valEl = this.g("oiCapTotal"), warn = this.g("oiCapWarn"), premEl = this.g("oiPremTotal"), roiEl = this.g("oiTotalRoi");
       if (valEl) {
+          const hintEl = this.g("oiCapHint");
         if (sel.length === 0) {
           valEl.textContent = "—"; warn.classList.remove("show");
           if (premEl) premEl.textContent = "—";
           if (roiEl) roiEl.textContent = "—";
+            if (hintEl) hintEl.textContent = "(tick rows)";
         } else {
           valEl.textContent = Utils.fmt$(total);
           if (premEl) premEl.textContent = Utils.fmt$(totalPrem);
           if (roiEl) roiEl.textContent = totalRoi.toFixed(2) + "%";
+            // Premium totals use actual premium only; flag rows saved without one
+            const missing = sel.filter(e => Utils.safe(e.premium) <= 0).length;
+            if (hintEl) hintEl.textContent = missing ? `(${missing} row${missing === 1 ? "" : "s"} without premium)` : "";
           const over = total > this.settings.capital;
           warn.classList.toggle("show", over);
-          if (over) this.g("oiCapWarnTxt").textContent = `Total Capital $${total.toLocaleString()} exceeds budget $${this.settings.capital.toLocaleString()} by $${(total - this.settings.capital).toLocaleString()}`;
+            if (over) this.g("oiCapWarnTxt").textContent = `Cash Required $${total.toLocaleString()} exceeds budget $${this.settings.capital.toLocaleString()} by $${(total - this.settings.capital).toLocaleString()}`;
         }
       }
     }
