@@ -1654,6 +1654,11 @@
   font-size: 10px !important;
 }
 
+/* Keep result badges on one line */
+#__option-roi-root__ .oi-money-badge.oi-nowrap {
+  white-space: nowrap !important;
+}
+
 /* Rows shown only in compact mode (e.g. IV Goal, which lives in the input grid otherwise) */
 #__option-roi-root__ .oi-rrow.oi-compact-only {
   display: none !important;

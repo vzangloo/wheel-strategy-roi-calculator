@@ -61,6 +61,21 @@
     static esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
     static fmt$(n) { return n == null || isNaN(n) ? "—" : "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     static pct(n) { return n == null || isNaN(n) ? "—" : n.toFixed(2) + "%"; }
+    // Typical (1 standard deviation) move by expiry, in %: IV × √(DTE ÷ 365)
+    static expectedMovePct(iv, dte) {
+      return iv > 0 && dte > 0 ? iv * Math.sqrt(dte / 365) : null;
+    }
+    // Rate the breakeven cushion against the typical move
+    static cushionLevel(cushionPct, movePct) {
+      // label: short word shown on the panel so the rating isn't conveyed by colour alone
+      if (cushionPct == null) return null;
+      if (cushionPct < 0) return { cls: "itm", label: "✗ Below", text: "Below breakeven — losing money on paper now" };
+      if (movePct == null) return null;
+      const ratio = cushionPct / movePct;
+      if (ratio >= 1) return { cls: "otm", label: "✓ Safe", text: "Safe — cushion covers the typical move" };
+      if (ratio >= 0.5) return { cls: "atm", label: "⚠ Moderate", text: "Moderate — cushion covers ½ to 1× the typical move" };
+      return { cls: "itm", label: "✗ Thin", text: "Thin — cushion is less than ½ the typical move" };
+    }
     static dtStamp() {
       const d = new Date(), p = n => String(n).padStart(2, "0");
       return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
@@ -246,7 +261,9 @@
                 res.breakeven = base - callPx;
                 res.beBaseName = cost ? "Cost" : "Stock";
                 res.beBase = base;
-                res.cushionPct = stockPrice > 0 ? ((stockPrice - res.breakeven) / stockPrice) * 100 : null;
+                // Cushion only with a real cost basis. Without one, breakeven is (stock − premium) and the cushion would
+                // just be premium ÷ stock — nearly always "Thin", which misleads when you already own the shares.
+                res.cushionPct = cost && stockPrice > 0 ? ((stockPrice - res.breakeven) / stockPrice) * 100 : null;
             }
             if (cost && strike > 0) {
                 // If-called: premium + (strike − cost) per share
@@ -316,29 +333,32 @@
       if (!this.isContextValid()) return;
       if (this._persistTimer) clearTimeout(this._persistTimer);
       this._persistTimer = setTimeout(() => {
-        chrome.storage.local.set({
+        // The extension may have been reloaded during the 500 ms debounce — check again
+        this.safeStorage(s => s.set({
           wsCalcV5: {
             roiGoal: this.roiGoal, ivGoal: this.ivGoal, capital: this.capital,
             autoScan: this.autoScan, optionType: this.optionType, theme: this.theme, etf: this.etf,
             wishlist: this.wishlist, pos: this.pos, lastValues: this.lastValues,
               csvName: this.csvName, symbolTypes: this.symbolTypes,
           }
-        });
+        }));
       }, 500);
     }
 
     setMinimized(min) {
       this.isMinimized = min;
-      if (!this.isContextValid()) return;
-      if (min) chrome.storage.local.set({ wsCalcMin: true });
-      else chrome.storage.local.remove("wsCalcMin");
+      this.safeStorage(s => min ? s.set({ wsCalcMin: true }) : s.remove("wsCalcMin"));
     }
 
     setClosed(closed) {
       this.isClosed = closed;
+      this.safeStorage(s => closed ? s.set({ wsCalcClosed: true }) : s.remove("wsCalcClosed"));
+    }
+
+    // Run a chrome.storage.local call only while the extension context is alive; never throw
+    safeStorage(fn) {
       if (!this.isContextValid()) return;
-      if (closed) chrome.storage.local.set({ wsCalcClosed: true });
-      else chrome.storage.local.remove("wsCalcClosed");
+      try { fn(chrome.storage.local); } catch (e) { /* context invalidated — ignore */ }
     }
 
     isContextValid() {
@@ -540,7 +560,8 @@
       <div class="oi-rrow"><span class="oi-rk">Moneyness</span><span id="oiMoneyStatus" class="oi-money-badge">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Spread %</span><span id="oiSpreadInd" class="oi-money-badge">—</span></div>
       <div class="oi-rrow oi-hidden" id="oiCalledRow"><span class="oi-rk">If Called</span><span class="oi-money-badge" id="oiIfCalled">—</span></div>
-      <div class="oi-rrow oi-hidden" id="oiBreakevenRow"><span class="oi-rk">Breakeven</span><span class="oi-money-badge" id="oiBreakeven">—</span></div>
+      <div class="oi-rrow oi-hidden" id="oiBreakevenRow"><span class="oi-rk">Breakeven</span><span class="oi-money-badge oi-nowrap" id="oiBreakeven">—</span></div>
+      <div class="oi-rrow oi-hidden" id="oiCushionRow"><span class="oi-rk">Cushion</span><span class="oi-money-badge oi-nowrap" id="oiCushion">—</span></div>
       <div class="oi-rrow"><span class="oi-rk" id="oiCapLbl">Capital Required</span><span class="oi-rv" id="oiCap">—</span></div>
     </div>
   </div>
@@ -561,7 +582,7 @@
   </div>
   <div class="oi-cap-warning" id="oiCapWarn">
     <span class="oi-cap-warning-icon">⚠️</span>
-    <span class="oi-cap-warning-txt" id="oiCapWarnTxt">Total Capital required exceeds budget</span>
+    <span class="oi-cap-warning-txt" id="oiCapWarnTxt">Cash Required exceeds budget</span>
   </div>
   <div id="oiWlBody"></div>
   <div class="oi-cap-bar">
@@ -581,7 +602,7 @@
 </div>
 <div class="oi-panel" id="oi-tab-cfg">
   <div class="oi-cfg-row">
-    <div><div class="oi-cfg-lbl">Capital ($)</div><div class="oi-cfg-sub">Budget — warn if total capital required exceeds this</div></div>
+    <div><div class="oi-cfg-lbl">Capital ($)</div><div class="oi-cfg-sub">Budget — warn if Wishlist Cash Required exceeds this</div></div>
     <div class="oi-cfg-ctrl"><div class="oi-inp-wrap"><span>$</span><input class="oi-inp" type="number" id="oiCapCfg" step="1000" min="0"/></div></div>
   </div>
   <div class="oi-cfg-row">
@@ -622,6 +643,7 @@
     <div class="oi-formula-row"><span class="oi-formula-key">ROC (CALL)</span><span class="oi-formula-val">premium ÷ (cost or stock × qty) (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Breakeven (PUT)</span><span class="oi-formula-val">strike − prem/sh or bid · cushion = (stock − BE) ÷ stock</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Breakeven (CALL)</span><span class="oi-formula-val">cost (or stock) − prem/sh or bid</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Typical Move</span><span class="oi-formula-val">IV × √(DTE ÷ 365) · safe when cushion ≥ move</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Capital Required</span><span class="oi-formula-val">strike × 100 × qty</span></div>
   </div>
 </div>`;
@@ -1051,19 +1073,39 @@
         }
 
       // Breakeven & cushion — Put: strike − premium; Call: cost basis (or stock) − premium
-      const beRow = g("oiBreakevenRow");
-      if (beRow) {
+      // Cushion is judged against the typical move (IV × √(DTE ÷ 365)): ≥ 1× safe, ½–1× moderate, < ½ thin
+      // Two short rows so neither wraps: Breakeven ($) and Cushion (% vs. typical move, coloured by safety)
+      const beRow = g("oiBreakevenRow"), cuRow = g("oiCushionRow");
+      if (beRow && cuRow) {
         if (r.breakeven != null) {
-          const be = g("oiBreakeven");
-          const cushion = r.cushionPct != null ? ` · ${Utils.pct(r.cushionPct)} cushion` : "";
-          be.textContent = `${Utils.fmt$(r.breakeven)}${cushion}`;
-          be.className = "oi-money-badge " + (r.cushionPct != null && r.cushionPct < 0 ? "itm" : "");
-          be.title = this.settings.optionType === "CALL"
+          const be = g("oiBreakeven"), cu = g("oiCushion");
+          be.textContent = Utils.fmt$(r.breakeven);
+          be.className = "oi-money-badge oi-nowrap";
+          be.title = (this.settings.optionType === "CALL"
             ? `${r.beBaseName} ${Utils.fmt$(r.beBase)} − ${Utils.fmt$(r.callPx)} ${r.callPxSrc}/share`
-            : `Strike ${Utils.fmt$(r.strike)} − ${Utils.fmt$(r.putPx)} ${r.putPxSrc}/share`;
+            : `Strike ${Utils.fmt$(r.strike)} − ${Utils.fmt$(r.putPx)} ${r.putPxSrc}/share`)
+            + "\nStock at or above breakeven = OK · below = losing money"
+            + (this.settings.optionType === "CALL" && !r.costBasis
+              ? "\nNo cost basis detected — based on today's stock price; cushion not shown" : "");
           beRow.classList.remove("oi-hidden");
+
+          if (r.cushionPct != null) {
+            const movePct = Utils.expectedMovePct(ivVal, dteVal);
+            const lvl = Utils.cushionLevel(r.cushionPct, movePct);
+            // e.g. "✗ Thin 6.00% (move 14.3%)" — word + % + typical move, kept short to stay on one line
+            cu.textContent = (lvl ? lvl.label + " " : "") + Utils.pct(r.cushionPct)
+              + (movePct != null ? ` (move ${movePct.toFixed(1)}%)` : "");
+            cu.className = "oi-money-badge oi-nowrap " + (lvl ? lvl.cls : "");
+            cu.title = "How far the stock can fall before hitting breakeven"
+              + (lvl ? `\n${lvl.text}` : "")
+              + (movePct != null ? "\nTypical move ≈ IV × √(DTE ÷ 365). Safe when cushion ≥ typical move." : "");
+            cuRow.classList.remove("oi-hidden");
+          } else {
+            cuRow.classList.add("oi-hidden");
+          }
         } else {
           beRow.classList.add("oi-hidden");
+          cuRow.classList.add("oi-hidden");
         }
       }
 
@@ -1402,10 +1444,22 @@
       this.saveValues(); this.calculate();
     }
 
+    // After the extension is reloaded/updated, this old script copy loses its chrome.* access.
+    // Stop its pollers, observer, and pending save so it can't throw "Extension context invalidated".
+    stopIfOrphaned() {
+      if (this.settings.isContextValid()) return false;
+      this._pollIntervals.forEach(id => clearInterval(id));
+      this._pollIntervals = [];
+      if (this._mutationObserver) { this._mutationObserver.disconnect(); this._mutationObserver = null; }
+      if (this.settings._persistTimer) { clearTimeout(this.settings._persistTimer); this.settings._persistTimer = null; }
+      return true;
+    }
+
     setupObservers() {
       let t = null;
       let scanning = false;
       this._mutationObserver = new MutationObserver((mutations) => {
+        if (this.stopIfOrphaned()) return;
         if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         // Ignore mutations from our own overlay
         const fromSelf = mutations.every(m => this.root.contains(m.target));
@@ -1413,6 +1467,7 @@
         if (scanning) return;
         clearTimeout(t);
         t = setTimeout(() => {
+          if (this.stopIfOrphaned()) return;
           if (scanning) return;
           scanning = true;
           try {
@@ -1428,6 +1483,7 @@
     setupPollers() {
       // Fast poll (300ms) for bid/strike/askPrice
       this._pollIntervals.push(setInterval(() => {
+        if (this.stopIfOrphaned()) return;
         if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         const fpv = Utils.nEl(Utils.qs(SEL.bidPut)), fcv = Utils.nEl(Utils.qs(SEL.bidCall));
         const fBid = (this.settings.optionType === "CALL" ? fcv : fpv);
@@ -1451,6 +1507,7 @@
 
       // Slow poll (2000ms) for DTE and Qty
       this._pollIntervals.push(setInterval(() => {
+        if (this.stopIfOrphaned()) return;
         if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         const days = this.detectDte();
         if (days != null && days !== parseInt(this.g("oiDte").value)) {

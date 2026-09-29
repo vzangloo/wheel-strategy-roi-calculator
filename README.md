@@ -10,6 +10,10 @@ indicators — all in one compact overlay.
 
 ![Extension UI Preview](images/preview.png)
 
+**New to the Wheel?** Start with the [Beginner Tutorial](TUTORIAL.md) — a step-by-step walkthrough of picking a put
+strike, handling assignment, and selling a covered call. For the underlying rules (delta, OI, exits), see the
+[Strategy Guide](STRATEGY_GUIDE.md).
+
 ---
 
 ## What It Does
@@ -37,7 +41,7 @@ indicators — all in one compact overlay.
 | **Cost Basis**       | Sell Call reads assigned shares from the IBKR Trades table — ROI on cost, If Called return |
 | **Asset Type**       | Manual dropdown: Equity, ETF, REIT, ADR, CEF, Index, BDC — remembered per symbol           |
 | **Vector UI**        | High-fidelity vector icons for tabs, status banners, and action buttons                    |
-| **Price & Premium**  | Split input for **Sell Price ($)** vs. **Premium ($)** (Auto-synced)                       |
+| **Price & Premium**  | Split input for **Sell Price (\$)** vs. **Premium (\$)** (Auto-synced)                       |
 | **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & ROC (Return on Capital)                      |
 | **Mid Price**        | Auto-calculated from Bid and Ask prices                                                    |
 | **Spread %**         | Very Liquid (< 5%) / Okay (< 10%) / Tradable – Careful (< 20%) / Illiquid – Avoid (≥ 20%)  |
@@ -69,6 +73,8 @@ Call Px (CALL)            = Premium ÷ (100 × Qty) if premium entered/detected,
 Breakeven (PUT)           = Strike − Put Px                            (Put Px = Premium ÷ (100 × Qty), else Bid)
 Breakeven (CALL)          = Cost Basis − Call Px                       (Stock Price if no cost basis)
 Cushion %                 = (Stock Price − Breakeven) ÷ Stock Price × 100
+Typical Move %            = IV × √(DTE ÷ 365)                          (1 standard deviation by expiry)
+Cushion rating            = Safe (green) ≥ 1× move · Moderate (gold) ½–1× · Thin (red) < ½× or negative
 Capital Required (PUT)    = Strike Price × 100 × Qty
 Capital Held (CALL)       = Cost Basis × 100 × Qty                    (Strike if no cost basis)
 Mid Price                 = (Bid + Ask) ÷ 2
@@ -89,6 +95,47 @@ ROI %         = Premium ÷ Cash Required × 100
 
 - Rows saved without a premium count as $0 and are flagged: "(N rows without premium)"
 - Budget warning shows when Cash Required > Capital ($) in Settings
+
+### Breakeven, Cushion & Typical Move
+
+```
+Breakeven (PUT)   = Strike − Put Px                  Put Px  = Premium ÷ (100 × Qty), else Bid
+Breakeven (CALL)  = Cost Basis − Call Px             Call Px = Premium ÷ (100 × Qty), else Bid
+                                                     (Stock Price if no cost basis)
+Cushion %         = (Stock Price − Breakeven) ÷ Stock Price × 100
+Typical Move %    = IV × √(DTE ÷ 365)
+Cushion ratio     = Cushion % ÷ Typical Move %
+```
+
+- **Breakeven** — stock price where the position neither makes nor loses money. At or above = OK; below = loss.
+- **Cushion** — how far (%) the stock can fall from today before reaching breakeven. Negative = already below.
+- **Typical Move** — 1 standard deviation move by expiry implied by IV: the stock ends within ± this % about 68% of
+  the time. `√(DTE ÷ 365)` scales annual IV down to the days remaining.
+- **Rating** — shown as a word + colour on the Cushion row, e.g. `✗ Thin 6.00% (move 14.3%)`:
+
+  | Condition          | Label        | Colour |
+  |--------------------|--------------|--------|
+  | ratio ≥ 1          | `✓ Safe`     | green  |
+  | 0.5 ≤ ratio < 1    | `⚠ Moderate` | gold   |
+  | ratio < 0.5        | `✗ Thin`     | red    |
+  | cushion < 0        | `✗ Below`    | red    |
+
+  The rating needs Stock Price, IV, and DTE; without IV/DTE only the cushion % is shown (a negative cushion still shows
+  `✗ Below`).
+- **Sell Call without cost basis** — the Cushion row is hidden. Breakeven falls back to Stock Price − Call Px, so the
+  cushion would only equal premium ÷ stock and isn't meaningful for shares you already own.
+
+**Worked example:** strike \$50, premium \$112 (1 contract), stock \$52, IV 45%, DTE 37
+
+```
+Put Px       = 112 ÷ 100            = $1.12
+Breakeven    = 50 − 1.12            = $48.88
+Cushion      = (52 − 48.88) ÷ 52    = 6.00%
+Typical Move = 45 × √(37 ÷ 365)     = 14.33%
+Ratio        = 6.00 ÷ 14.33         = 0.42  → ✗ Thin (red)
+```
+
+Range guidance and interpretation: see [Strategy Guide → Cushion vs. Typical Move](STRATEGY_GUIDE.md#cushion-vs-typical-move).
 
 ### Cost Basis Detection (Sell Call)
 
@@ -202,6 +249,20 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 ## Recent Updates (v5.1.7)
 
+- **Cushion row**: Breakeven split into two one-line rows — Breakeven (\$) and Cushion (%) — so the text no longer
+  wraps.
+- **Typical move & cushion rating**: Cushion row shows the typical move (IV × √(DTE ÷ 365)) and a word + colour
+  rating: `✓ Safe` (≥ 1× move), `⚠ Moderate` (½–1×), `✗ Thin` (< ½×), `✗ Below` (under breakeven). The word means the
+  rating isn't conveyed by colour alone.
+- **Beginner tutorial**: New [TUTORIAL.md](TUTORIAL.md) — plain-language, step-by-step walkthrough in panel order,
+  with every example number verified against the calculator.
+- **Docs reorganised**: formulas in this README, range guidance in the [Strategy Guide](STRATEGY_GUIDE.md), and
+  "how to decide" in the tutorial.
+- **Fix: "Extension context invalidated"**: After the extension is reloaded/updated, the old script on an open tab
+  stops its pollers and observer and skips saves instead of throwing.
+- **Wording**: Settings → Capital and the budget warning now say "Cash Required", matching the Wishlist totals.
+- **Call cushion needs cost basis**: For Sell Call without a detected cost basis, the Cushion row is hidden (it would
+  just be premium ÷ stock and almost always read "Thin"). Breakeven still shows, based on today's stock price.
 - **Cost basis for Sell Call**: Detects assigned shares from the IBKR Trades table (Buy/Sell, average-cost method);
   Covered ROI, ROC, and Capital Held now use cost basis.
 - **If Called**: Shows total return ($ and %) if shares are called away at the strike.
