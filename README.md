@@ -32,25 +32,26 @@ indicators — all in one compact overlay.
 
 ## Features
 
-| Feature              | Detail                                                                           |
-|----------------------|----------------------------------------------------------------------------------|
-| **Auto-scan**        | Detects bid/ask/strike/symbol/IV/DTE from IBKR pages                             |
-| **Asset Type**       | Manual dropdown: Equity, ETF, REIT, ADR, CEF, Index, BDC — remembered per symbol |
-| **Vector UI**        | High-fidelity vector icons for tabs, status banners, and action buttons          |
-| **Price & Premium**  | Split input for **Sell Price ($)** vs. **Premium ($)** (Auto-synced)             |
-| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Sell ROI                            |
-| **Mid Price**        | Auto-calculated from Bid and Ask prices                                          |
-| **Spread %**         | Liquidity indicator: Very Liquid / Okay / Careful / Illiquid                     |
-| **DTE Hints**        | Fast income (7-14d), Sweet spot (30-45d), More premium (60d+)                    |
-| **ROI Goal**         | Default 2.5% — customisable in Settings                                          |
-| **Wishlist**         | Add symbols with full option details including Mid Price                         |
-| **Compact Mode**     | Collapse UI to focus on ROI results while maintaining status info                |
-| **Highlight**        | Green highlight for symbols meeting ROI goal                                     |
-| **Moneyness**        | Displays OTM, ATM, ITM status and trade Risk Level                               |
-| **Export**           | Download Wishlist as CSV with customisable filenames                             |
-| **Resizable**        | Drag right edge to enlarge/shrink — persisted across sessions                    |
-| **Persistent**       | Settings & Wishlist saved via `chrome.storage.local`                             |
-| **Icon-triggered**   | Extension only shows when user clicks the toolbar icon                           |
+| Feature              | Detail                                                                                     |
+|----------------------|--------------------------------------------------------------------------------------------|
+| **Auto-scan**        | Detects bid/ask/strike/symbol/IV/DTE from IBKR pages                                       |
+| **Cost Basis**       | Sell Call reads assigned shares from the IBKR Trades table — ROI on cost, If Called return |
+| **Asset Type**       | Manual dropdown: Equity, ETF, REIT, ADR, CEF, Index, BDC — remembered per symbol           |
+| **Vector UI**        | High-fidelity vector icons for tabs, status banners, and action buttons                    |
+| **Price & Premium**  | Split input for **Sell Price ($)** vs. **Premium ($)** (Auto-synced)                       |
+| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Sell ROI                                      |
+| **Mid Price**        | Auto-calculated from Bid and Ask prices                                                    |
+| **Spread %**         | Liquidity indicator: Very Liquid / Okay / Careful / Illiquid                               |
+| **DTE Hints**        | Fast income (7-14d), Sweet spot (30-45d), More premium (60d+)                              |
+| **ROI Goal**         | Default 2.5% — customisable in Settings                                                    |
+| **Wishlist**         | Add symbols with full option details including Mid Price                                   |
+| **Compact Mode**     | Collapse UI to focus on ROI results while maintaining status info                          |
+| **Highlight**        | Green highlight for symbols meeting ROI goal                                               |
+| **Moneyness**        | Displays OTM, ATM, ITM status and trade Risk Level                                         |
+| **Export**           | Download Wishlist as CSV with customisable filenames                                       |
+| **Resizable**        | Drag right edge to enlarge/shrink — persisted across sessions                              |
+| **Persistent**       | Settings & Wishlist saved via `chrome.storage.local`                                       |
+| **Icon-triggered**   | Extension only shows when user clicks the toolbar icon                                     |
 
 ---
 
@@ -59,16 +60,47 @@ indicators — all in one compact overlay.
 ```
 Period                    = ceil(DTE / 30) × 30
 Cash-secured ROI % (PUT)  = (Bid ÷ Strike ÷ DTE × Period) × 100
-Covered ROI % (CALL)      = (Bid ÷ Stock Price ÷ DTE × Period) × 100
+Covered ROI % (CALL)      = (Bid ÷ Cost Basis ÷ DTE × Period) × 100   (Stock Price if no cost basis)
 Sell ROI % (PUT)          = Premium ÷ (Strike × Qty)
-Sell ROI % (CALL)         = Premium ÷ (Stock Price × Qty)
-Capital Required          = Strike Price × 100 × Qty
+Sell ROI % (CALL)         = Premium ÷ (Cost Basis × Qty)              (Stock Price if no cost basis)
+Cost Basis (CALL)         = Σ Buy Amount ÷ Shares held (average cost)
+If Called (CALL)          = (Bid + Strike − Cost Basis) × 100 × Qty
+Capital Required (PUT)    = Strike Price × 100 × Qty
+Capital Held (CALL)       = Cost Basis × 100 × Qty                    (Strike if no cost basis)
 Mid Price                 = (Bid + Ask) ÷ 2
 Spread %                  = (Ask - Bid) ÷ Mid Price × 100
 ```
 
 > ROI is normalized to the nearest 30-day period so you can compare contracts across different expirations on an equal
 > basis.
+
+### Cost Basis Detection (Sell Call)
+
+On the ticker's page, the extension reads the IBKR Trades table (`Date`, `Transaction Type`, `Quantity`, `Price`,
+`Amount`) to find shares from assigned puts.
+
+| Transaction Type | Handling                                                   |
+|------------------|------------------------------------------------------------|
+| `Buy`            | Adds shares; cost = \|Amount\| (falls back to Qty × Price) |
+| `Sell`           | Removes shares at average cost                             |
+| Other            | Skipped; listed in the Cost Basis tooltip                  |
+
+- Rows are processed oldest → newest
+- No open shares → Covered ROI falls back to Stock Price
+- Cost Basis shows above Covered ROI; ⚠ red when Strike < Cost Basis (loss if called) or shares held < Qty × 100
+- Cost Basis excludes premium earned from the original put (not available on the ticker's page)
+
+### Below-Cost Call Advice
+
+Shown when Strike < Cost Basis:
+
+```
+Share loss          = (Strike − Cost) × 100 × Qty
+Premium             = Bid × 100 × Qty
+Net if called       = Share loss + Premium
+Breakeven strike    = Cost − Bid
+Calls to offset gap = ceil((Cost − Strike) ÷ Bid)   (assumes same premium each cycle)
+```
 
 ### Price & Premium Sync
 The calculator automatically syncs the per-share price and total dollar amount:
@@ -153,7 +185,22 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 
 ---
 
-## Recent Updates (v5.1.6)
+## Recent Updates (v5.1.7)
+
+- **Cost basis for Sell Call**: Detects assigned shares from the IBKR Trades table (Buy/Sell, average-cost method);
+  Covered ROI, Sell ROI, and Capital Held now use cost basis.
+- **If Called**: Shows total return ($ and %) if shares are called away at the strike.
+- **Below-cost call advice**: When strike < cost, shows share loss, premium offset, net, breakeven strike, and calls
+  needed to offset the gap.
+- **Cost Basis warning**: Shown above Covered ROI with ⚠ when the strike is below cost (loss if called) or shares don't
+  cover the contract quantity.
+- **Wishlist & CSV**: New Cost$ column and `Cost Basis ($)` export field.
+- **Wishlist ROI aligned**: ROI, Sell ROI, and Capital are recalculated for every row with the calculator's formula (
+  period-normalized, cost basis for calls); older entries are updated automatically.
+
+---
+
+## Previous Updates (v5.1.6)
 
 - **Period-normalized ROI**: ROI is now normalized to the nearest 30-day period (`ceil(DTE/30) × 30`) for
   apples-to-apples comparison across different expirations.
