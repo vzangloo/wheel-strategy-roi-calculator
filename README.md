@@ -39,7 +39,7 @@ indicators — all in one compact overlay.
 | **Asset Type**       | Manual dropdown: Equity, ETF, REIT, ADR, CEF, Index, BDC — remembered per symbol           |
 | **Vector UI**        | High-fidelity vector icons for tabs, status banners, and action buttons                    |
 | **Price & Premium**  | Split input for **Sell Price ($)** vs. **Premium ($)** (Auto-synced)                       |
-| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Sell ROI                                      |
+| **ROI Calculations** | Cash-secured ROI (PUT), Covered ROI (CALL) & Premium ROI                                   |
 | **Mid Price**        | Auto-calculated from Bid and Ask prices                                                    |
 | **Spread %**         | Liquidity indicator: Very Liquid / Okay / Careful / Illiquid                               |
 | **DTE Hints**        | Fast income (7-14d), Sweet spot (30-45d), More premium (60d+)                              |
@@ -61,8 +61,8 @@ indicators — all in one compact overlay.
 Period                    = ceil(DTE / 30) × 30
 Cash-secured ROI % (PUT)  = (Bid ÷ Strike ÷ DTE × Period) × 100
 Covered ROI % (CALL)      = (Bid ÷ Cost Basis ÷ DTE × Period) × 100   (Stock Price if no cost basis)
-Sell ROI % (PUT)          = Premium ÷ (Strike × Qty)
-Sell ROI % (CALL)         = Premium ÷ (Cost Basis × Qty)              (Stock Price if no cost basis)
+Premium ROI % (PUT)       = Premium ÷ (Strike × Qty)
+Premium ROI % (CALL)      = Premium ÷ (Cost Basis × Qty)              (Stock Price if no cost basis)
 Cost Basis (CALL)         = Σ Buy Amount ÷ Shares held (average cost)
 If Called (CALL)          = (Bid + Strike − Cost Basis) × 100 × Qty
 Capital Required (PUT)    = Strike Price × 100 × Qty
@@ -188,15 +188,16 @@ If you encounter any bugs with the IBKR data detection or have feature requests,
 ## Recent Updates (v5.1.7)
 
 - **Cost basis for Sell Call**: Detects assigned shares from the IBKR Trades table (Buy/Sell, average-cost method);
-  Covered ROI, Sell ROI, and Capital Held now use cost basis.
+  Covered ROI, Premium ROI, and Capital Held now use cost basis.
 - **If Called**: Shows total return ($ and %) if shares are called away at the strike.
 - **Below-cost call advice**: When strike < cost, shows share loss, premium offset, net, breakeven strike, and calls
   needed to offset the gap.
 - **Cost Basis warning**: Shown above Covered ROI with ⚠ when the strike is below cost (loss if called) or shares don't
   cover the contract quantity.
 - **Wishlist & CSV**: New Cost$ column and `Cost Basis ($)` export field.
-- **Wishlist ROI aligned**: ROI, Sell ROI, and Capital are recalculated for every row with the calculator's formula (
+- **Wishlist ROI aligned**: ROI, Premium ROI, and Capital are recalculated for every row with the calculator's formula (
   period-normalized, cost basis for calls); older entries are updated automatically.
+- **Renamed**: "Sell ROI" → "Premium ROI" (goal chip "Act ROI" → "Prem ROI"; CSV column `Premium ROI (%)`).
 
 ---
 

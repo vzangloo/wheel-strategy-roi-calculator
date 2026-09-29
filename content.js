@@ -492,7 +492,7 @@
       <div class="oi-roi-divider"></div>
       <div class="oi-roi-block">
         <div class="oi-roi-num oi-roi2" id="oiRoi2">—</div>
-        <div class="oi-roi-lbl" id="oiRoi2Lbl">Sell ROI</div>
+        <div class="oi-roi-lbl" id="oiRoi2Lbl">Premium ROI</div>
         <div class="oi-roi-sub" id="oiRoi2Sub">prem ÷ strike</div>
       </div>
     </div>
@@ -579,8 +579,8 @@
     <div class="oi-formula-row"><span class="oi-formula-key">Covered ROI (CALL)</span><span class="oi-formula-val">bid ÷ cost (or stock) ÷ DTE × period × 100</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Cost Basis (CALL)</span><span class="oi-formula-val">Σ buy amount ÷ shares (avg cost)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">If Called (CALL)</span><span class="oi-formula-val">(bid + strike − cost) × 100 × qty</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Sell ROI (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Sell ROI (CALL)</span><span class="oi-formula-val">premium ÷ (stock × qty) (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Premium ROI (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Premium ROI (CALL)</span><span class="oi-formula-val">premium ÷ (cost or stock × qty) (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Capital Required</span><span class="oi-formula-val">strike × 100 × qty</span></div>
   </div>
 </div>`;
@@ -1011,7 +1011,7 @@
 
       const show2 = r.bid > 0 && r.strike > 0 && r.roi2 > 0 && isFinite(r.roi2);
       if (show2) {
-        si2.textContent = (hit2 ? "✓ " : "✗ ") + "Act ROI" + (hit2 ? " (" + this.settings.roiGoal + "%)" : " −" + Math.abs(this.settings.roiGoal - r.roi2).toFixed(2) + "%");
+          si2.textContent = (hit2 ? "✓ " : "✗ ") + "Prem ROI" + (hit2 ? " (" + this.settings.roiGoal + "%)" : " −" + Math.abs(this.settings.roiGoal - r.roi2).toFixed(2) + "%");
         si2.className = "oi-goal " + (hit2 ? "hit" : "miss");
       } else si2.className = "oi-goal oi-hidden";
 
@@ -1144,7 +1144,7 @@
         <thead><tr>
           <th><input type="checkbox" data-chkall="1" ${allSelected ? "checked" : ""}></th>
           <th>Sym</th><th>Class</th><th>Stock$</th><th>Cost$</th><th>IV</th><th>Type</th><th class="oi-strike-col">Strike</th><th>Bid</th>
-          <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>Sell ROI</th><th>Capital</th><th>Date</th><th></th>
+          <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>Prem ROI</th><th>Capital</th><th>Date</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
@@ -1205,7 +1205,7 @@
         "Qty": e.qty,
         "Sell Price ($)": (+(e.price || 0)).toFixed(2),
         "Premium ($)": (+(e.premium || 0)).toFixed(2),
-        "Sell ROI (%)": (+(e.roi2 || 0)).toFixed(2),
+          "Premium ROI (%)": (+(e.roi2 || 0)).toFixed(2),
         "Capital ($)": (+(e.cap || 0)).toFixed(2),
         "Added": e.addedAt,
       }));
