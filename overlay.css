@@ -429,7 +429,8 @@
   box-shadow: none !important;
 }
 
-#__option-roi-root__ #oiMidPrice {
+#__option-roi-root__ #oiMidPrice,
+#__option-roi-root__ #oiRoc {
   text-align: center !important;
 }
 
@@ -531,9 +532,12 @@
 }
 
 /* ── Result box ──────────────────────────────────────────────────────────────── */
+/* Two equal columns with the same 8px gap as .oi-grid; symmetric padding keeps the
+   right column (ROI Goals list) aligned with the input grid's right column */
 #__option-roi-root__ .oi-result {
-  display: flex !important;
-  gap: 14px !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  column-gap: 8px !important;
   align-items: stretch !important;
   background: var(--surf2) !important;
   border: 1px solid var(--bord) !important;
@@ -544,8 +548,9 @@
 
 #__option-roi-root__ .oi-roi-cols {
   display: flex !important;
-  flex-shrink: 0 !important;
   align-items: center !important;
+  justify-content: space-around !important;
+  min-width: 0 !important;
 }
 
 #__option-roi-root__ .oi-roi-block {
@@ -561,6 +566,51 @@
   background: var(--bord) !important;
   align-self: stretch !important;
   flex-shrink: 0 !important;
+}
+
+#__option-roi-root__ .oi-roi-cost {
+    font-family: var(--mono) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: var(--muted) !important;
+    white-space: nowrap !important;
+    margin-bottom: 6px !important;
+    padding: 1px 6px !important;
+    border-radius: 4px !important;
+    background: rgba(139, 148, 158, .15) !important;
+    cursor: default !important;
+}
+
+/* Breakeven under the ROC number — uses spare space instead of a results row */
+#__option-roi-root__ .oi-roi-be {
+    font-family: var(--mono) !important;
+    white-space: nowrap !important;
+    margin-top: 6px !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    background: rgba(139, 148, 158, .15) !important;
+    cursor: default !important;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 5px !important;
+}
+
+#__option-roi-root__ .oi-roi-be-lbl {
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    color: var(--muted) !important;
+}
+
+#__option-roi-root__ .oi-roi-be-val {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: var(--text) !important;
+}
+
+#__option-roi-root__ .oi-roi-cost.warn {
+    color: var(--warn) !important;
+    background: rgba(248, 81, 73, .15) !important;
+    border: 1px solid rgba(248, 81, 73, .3) !important;
 }
 
 #__option-roi-root__ .oi-roi-num {
@@ -606,7 +656,7 @@
 }
 
 #__option-roi-root__ .oi-result-rows {
-  flex: 1 !important;
+  min-width: 0 !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 6px !important;
@@ -712,6 +762,19 @@
   white-space: nowrap !important;
 }
 
+/* IV Goal display cell (beside Implied Volatility) — same height as inputs */
+#__option-roi-root__ .oi-iv-goal-cell {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 31px !important;
+}
+
+#__option-roi-root__ .oi-iv-goal-ind:not(.hit):not(.miss) {
+  color: var(--text) !important;
+  font-size: 12px !important;
+}
+
 #__option-roi-root__ .oi-iv-goal-ind.hit {
   background: rgba(188, 140, 255, .12) !important;
   color: var(--purple) !important;
@@ -719,9 +782,122 @@
 }
 
 #__option-roi-root__ .oi-iv-goal-ind.miss {
-  background: rgba(125, 133, 144, .1) !important;
-  color: var(--muted) !important;
-  border: 1px solid rgba(125, 133, 144, .2) !important;
+  background: rgba(248, 81, 73, .08) !important;
+  color: var(--warn) !important;
+  border: 1px solid rgba(248, 81, 73, .2) !important;
+}
+
+#__option-roi-root__.oi-light .oi-iv-goal-ind.miss {
+  background: rgba(207, 34, 46, .06) !important;
+}
+
+/* ── Below-cost call advice ──────────────────────────────────────────────────── */
+#__option-roi-root__ .oi-call-advice {
+    display: none !important;
+    background: var(--warn-bg) !important;
+    border: 1px solid var(--warn-bord) !important;
+    border-radius: var(--r) !important;
+    padding: 5px 12px !important;
+    margin-bottom: 8px !important;
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
+}
+
+#__option-roi-root__ .oi-call-advice.show {
+    display: block !important;
+}
+
+/* One-line summary; details stay hidden until clicked */
+#__option-roi-root__ .oi-advice-toggle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    color: var(--warn) !important;
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle > span:first-child {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle b {
+    font-weight: 700 !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle b.neg {
+    color: var(--warn) !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle b.pos {
+    color: var(--green) !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle:focus-visible {
+    outline: 1px solid var(--warn) !important;
+    outline-offset: 2px !important;
+}
+
+#__option-roi-root__ .oi-advice-caret {
+    flex-shrink: 0 !important;
+}
+
+#__option-roi-root__ .oi-advice-body {
+    display: none !important;
+    margin-top: 6px !important;
+}
+
+#__option-roi-root__ .oi-call-advice.open .oi-advice-body {
+    display: block !important;
+}
+
+#__option-roi-root__ .oi-advice-row {
+    display: flex !important;
+    justify-content: space-between !important;
+    padding: 1px 0 !important;
+    color: var(--text2) !important;
+}
+
+#__option-roi-root__ .oi-advice-row .neg {
+    color: var(--warn) !important;
+    font-weight: 600 !important;
+}
+
+#__option-roi-root__ .oi-advice-row .pos {
+    color: var(--green) !important;
+    font-weight: 600 !important;
+}
+
+#__option-roi-root__ .oi-advice-note {
+    color: var(--muted) !important;
+    font-size: 9px !important;
+    margin-top: 6px !important;
+    font-family: var(--sans) !important;
+}
+
+/* Compact mode hides Breakeven, If Called and the below-cost advice — they stay in the full view */
+/* Cushion stays visible in compact mode: it's the quickest safety check while clicking strikes.
+   Higher-specificity rule so an older injected stylesheet (still on the page after an extension
+   reload) can't hide it. The row is still hidden when it has .oi-hidden (no cushion to show). */
+#__option-roi-root__.oi-minimized .oi-result-rows #oiCushionRow:not(.oi-hidden) {
+    display: flex !important;
+}
+
+#__option-roi-root__.oi-minimized .oi-call-advice,
+#__option-roi-root__.oi-minimized .oi-roi-be,
+#__option-roi-root__.oi-minimized #oiCalledRow {
+    display: none !important;
 }
 
 /* ── Action buttons ──────────────────────────────────────────────────────────── */
@@ -1372,15 +1548,42 @@
   border-radius: var(--r) !important;
 }
 
-#__option-roi-root__ .oi-formula-note h3 {
+/* Collapsible title (native <details>/<summary>); caret ▸ closed, ▾ open */
+#__option-roi-root__ .oi-formula-sum {
   font-family: var(--mono) !important;
   font-size: 10px !important;
   font-weight: 600 !important;
   color: var(--muted) !important;
   text-transform: uppercase !important;
   letter-spacing: .06em !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  list-style: none !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+#__option-roi-root__ .oi-formula-sum::-webkit-details-marker {
+  display: none !important;
+}
+
+#__option-roi-root__ .oi-formula-sum::before {
+  content: "▸" !important;
+  font-size: 10px !important;
+}
+
+#__option-roi-root__ .oi-formula-note[open] > .oi-formula-sum::before {
+  content: "▾" !important;
+}
+
+#__option-roi-root__ .oi-formula-note[open] > .oi-formula-sum {
   margin-bottom: 6px !important;
-  display: block !important;
+}
+
+#__option-roi-root__ .oi-formula-sum:hover,
+#__option-roi-root__ .oi-formula-sum:focus-visible {
+  color: var(--accent) !important;
 }
 
 #__option-roi-root__ .oi-formula-row {
@@ -1527,6 +1730,7 @@
 }
 
 #__option-roi-root__.oi-minimized .oi-result {
+  display: flex !important;
   margin-bottom: 0 !important;
   padding: 0 !important;
   gap: 0 !important;
@@ -1561,6 +1765,13 @@
 #__option-roi-root__.oi-minimized .oi-rrow {
   font-size: 10px !important;
 }
+
+/* Keep result badges on one line */
+#__option-roi-root__ .oi-money-badge.oi-nowrap {
+  white-space: nowrap !important;
+}
+
+
 
 #__option-roi-root__.oi-minimized .oi-actions {
   display: none !important;

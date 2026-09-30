@@ -1,6 +1,6 @@
 /**
  * Wheel Strategy ROI Calculator — IBKR Edition
- * content.js v5.1.5
+ * content.js v5.1.7
  */
 (function () {
   "use strict";
@@ -61,6 +61,21 @@
     static esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
     static fmt$(n) { return n == null || isNaN(n) ? "—" : "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     static pct(n) { return n == null || isNaN(n) ? "—" : n.toFixed(2) + "%"; }
+    // Typical (1 standard deviation) move by expiry, in %: IV × √(DTE ÷ 365)
+    static expectedMovePct(iv, dte) {
+      return iv > 0 && dte > 0 ? iv * Math.sqrt(dte / 365) : null;
+    }
+    // Rate the breakeven cushion against the typical move
+    static cushionLevel(cushionPct, movePct) {
+      // label: short word shown on the panel so the rating isn't conveyed by colour alone
+      if (cushionPct == null) return null;
+      if (cushionPct < 0) return { cls: "itm", label: "✗ Below", text: "Below breakeven — losing money on paper now" };
+      if (movePct == null) return null;
+      const ratio = cushionPct / movePct;
+      if (ratio >= 1) return { cls: "otm", label: "✓ Safe", text: "Safe — cushion covers the typical move" };
+      if (ratio >= 0.5) return { cls: "atm", label: "⚠ Moderate", text: "Moderate — cushion covers ½ to 1× the typical move" };
+      return { cls: "itm", label: "✗ Thin", text: "Thin — cushion is less than ½ the typical move" };
+    }
     static dtStamp() {
       const d = new Date(), p = n => String(n).padStart(2, "0");
       return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
@@ -78,19 +93,193 @@
     }
   });
 
+    // ── Cost Basis (assigned shares from IBKR Trades table) ─────────────────
+    class Lot {
+        constructor({date, type, qty, price, amount}) {
+            this.date = date;
+            this.time = Date.parse(date) || 0;
+            this.type = (type || "").trim().toLowerCase();
+            this.qty = Math.abs(qty || 0);
+            this.price = Math.abs(price || 0);
+            // Amount is the actual cash paid/received; fall back to qty × price
+            this.cost = amount != null && !isNaN(amount) ? Math.abs(amount) : this.qty * this.price;
+        }
+
+        get isBuy() {
+            return this.type === "buy";
+        }
+
+        get isSell() {
+            return this.type === "sell";
+        }
+    }
+
+    class CostBasis {
+        constructor(lots) {
+            this.lots = lots;
+            this.shares = 0;
+            this.totalCost = 0;
+            this.skipped = [];
+            this.compute();
+        }
+
+        // Average-cost method, processed chronologically
+        compute() {
+            const ordered = [...this.lots].sort((a, b) => a.time - b.time);
+            for (const lot of ordered) {
+                if (lot.isBuy) {
+                    this.shares += lot.qty;
+                    this.totalCost += lot.cost;
+                } else if (lot.isSell) {
+                    if (this.shares <= 0) continue;
+                    const q = Math.min(lot.qty, this.shares);
+                    this.totalCost -= (this.totalCost / this.shares) * q;
+                    this.shares -= q;
+                } else {
+                    this.skipped.push(lot.type || "(blank)");
+                }
+            }
+        }
+
+        get avgCost() {
+            return this.shares > 0 ? this.totalCost / this.shares : null;
+        }
+
+        get key() {
+            return `${this.shares}|${this.totalCost.toFixed(4)}|${this.skipped.length}`;
+        }
+    }
+
+    class CostBasisDetector {
+        static REQUIRED = ["transaction type", "quantity", "price", "amount"];
+
+        findTable() {
+            const seen = new Set();
+            const candidates = [
+                ...document.querySelectorAll(".orders-trades-table table"),
+                ...document.querySelectorAll("table[role='grid']"),
+            ];
+            for (const table of candidates) {
+                if (seen.has(table)) continue;
+                seen.add(table);
+                const cols = this.mapColumns(table);
+                if (cols) return {table, cols};
+            }
+            return null;
+        }
+
+        // Map header name → column index; null if required headers are missing
+        mapColumns(table) {
+            const ths = table.querySelectorAll("thead th");
+            const cols = {};
+            ths.forEach((th, i) => {
+                cols[th.textContent.trim().toLowerCase()] = i;
+            });
+            return CostBasisDetector.REQUIRED.every(h => h in cols) ? cols : null;
+        }
+
+        num(txt) {
+            if (txt == null) return null;
+            const n = parseFloat(String(txt).replace(/[^0-9.\-]/g, ""));
+            return isNaN(n) ? null : n;
+        }
+
+        detect() {
+            try {
+                const found = this.findTable();
+                if (!found) return null;
+                const {table, cols} = found;
+                const lots = [];
+                table.querySelectorAll("tbody tr").forEach(tr => {
+                    const cells = tr.querySelectorAll(":scope > td");
+                    if (!cells.length) return;
+                    const cell = name => (name in cols && cells[cols[name]]) ? cells[cols[name]].textContent.trim() : null;
+                    const qty = this.num(cell("quantity"));
+                    if (!qty) return;
+                    lots.push(new Lot({
+                        date: cell("date"),
+                        type: cell("transaction type"),
+                        qty,
+                        price: this.num(cell("price")),
+                        amount: this.num(cell("amount")),
+                    }));
+                });
+                if (!lots.length) return null;
+                const cb = new CostBasis(lots);
+                return cb.shares > 0 ? cb : null;
+            } catch (e) {
+                return null;
+            }
+        }
+    }
+
+  const roiPeriod = (dte) => {
+    if (!dte || dte <= 0) return 0;
+    return Math.ceil(dte / 30) * 30;
+  };
+
   const strategies = {
-    PUT: createStrategy("PUT", "Cash-secured ROI", "bid ÷ strike × 100", "prem ÷ strike",
-      (bid, strike, premium, qty, stockPrice) => {
+    PUT: createStrategy("PUT", "Cash-secured ROI", "bid ÷ strike ÷ DTE × period × 100", "prem ÷ strike",
+        (bid, strike, premium, qty, stockPrice, dte) => {
         if (!strike || strike <= 0) return { roi1: 0, roi2: 0, cap: 0 };
-        return { roi1: (bid / strike) * 100, roi2: premium / (strike * qty), cap: strike * 100 * qty, qty };
+          const period = roiPeriod(dte);
+          const roi1 = period > 0 ? (bid / strike / dte * period) * 100 : (bid / strike) * 100;
+          const res = {roi1, roi2: premium / (strike * qty), cap: strike * 100 * qty, qty};
+          // Breakeven if assigned: strike − premium per share (entered premium, otherwise bid)
+          const putPx = premium > 0 ? premium / (100 * qty) : bid;
+          if (putPx > 0) {
+            res.putPx = putPx;
+            res.putPxSrc = premium > 0 ? "premium" : "bid";
+            res.breakeven = strike - putPx;
+            // Cushion: how far the stock can fall before the assigned position loses money
+            res.cushionPct = stockPrice > 0 ? ((stockPrice - res.breakeven) / stockPrice) * 100 : null;
+          }
+          return res;
       },
       (strike, stockPrice) => (strike < stockPrice ? { status: "OTM", risk: "Lower Risk", cls: "otm" } : { status: "ITM", risk: "Very High Risk", cls: "itm" })
     ),
-    CALL: createStrategy("CALL", "Covered ROI", "bid ÷ stock × 100", "prem ÷ stock",
-      (bid, strike, premium, qty, stockPrice) => {
-        const sp = stockPrice > 0 ? stockPrice : 0;
-        if (!sp || sp <= 0) return { roi1: 0, roi2: 0, cap: 0 };
-        return { roi1: (bid / sp) * 100, roi2: premium / (sp * qty), cap: strike * 100 * qty, qty };
+    CALL: createStrategy("CALL", "Covered ROI", "bid ÷ stock ÷ DTE × period × 100", "prem ÷ stock",
+        (bid, strike, premium, qty, stockPrice, dte, costBasis) => {
+            // Standard covered call: return on cost basis when known, else on stock price
+            const cost = costBasis && costBasis.avgCost > 0 ? costBasis.avgCost : 0;
+            const base = cost || (stockPrice > 0 ? stockPrice : 0);
+            if (!base) return {roi1: 0, roi2: 0, cap: 0};
+          const period = roiPeriod(dte);
+            const roi1 = period > 0 ? (bid / base / dte * period) * 100 : (bid / base) * 100;
+            const res = {
+                roi1, roi2: premium / (base * qty),
+                cap: cost ? cost * 100 * qty : strike * 100 * qty,
+                qty, costBasis: cost || null,
+            };
+            // Per-share call premium: actual premium if entered/detected, otherwise the bid
+            const usePrem = premium > 0;
+            const callPx = usePrem ? premium / (100 * qty) : bid;
+            res.callPx = callPx;
+            res.callPxSrc = usePrem ? "premium" : "bid";
+            if (callPx > 0) {
+                // Breakeven: share cost (cost basis, else stock price) − call premium per share
+                res.breakeven = base - callPx;
+                res.beBaseName = cost ? "Cost" : "Stock";
+                res.beBase = base;
+                // Cushion only with a real cost basis. Without one, breakeven is (stock − premium) and the cushion would
+                // just be premium ÷ stock — nearly always "Thin", which misleads when you already own the shares.
+                res.cushionPct = cost && stockPrice > 0 ? ((stockPrice - res.breakeven) / stockPrice) * 100 : null;
+            }
+            if (cost && strike > 0) {
+                // If-called: premium + (strike − cost) per share
+                res.ifCalled = (callPx + strike - cost) * 100 * qty;
+                res.ifCalledPct = ((callPx + strike - cost) / cost) * 100;
+                if (strike < cost) {
+                    // Below-cost call: breakdown, breakeven, and calls needed to offset the gap
+                    res.belowCost = {
+                        shareLoss: (strike - cost) * 100 * qty,
+                        premium: callPx * 100 * qty,
+                        breakeven: cost - callPx,
+                        callsToRecover: callPx > 0 ? Math.ceil((cost - strike) / callPx) : null,
+                    };
+                }
+            }
+            return res;
       },
       (strike, stockPrice) => (strike > stockPrice ? { status: "OTM", risk: "Lower Risk", cls: "otm" } : { status: "ITM", risk: "Very High Risk", cls: "itm" })
     )
@@ -144,29 +333,32 @@
       if (!this.isContextValid()) return;
       if (this._persistTimer) clearTimeout(this._persistTimer);
       this._persistTimer = setTimeout(() => {
-        chrome.storage.local.set({
+        // The extension may have been reloaded during the 500 ms debounce — check again
+        this.safeStorage(s => s.set({
           wsCalcV5: {
             roiGoal: this.roiGoal, ivGoal: this.ivGoal, capital: this.capital,
             autoScan: this.autoScan, optionType: this.optionType, theme: this.theme, etf: this.etf,
             wishlist: this.wishlist, pos: this.pos, lastValues: this.lastValues,
-            csvName: this.csvName, width: this.width, symbolTypes: this.symbolTypes,
+              csvName: this.csvName, symbolTypes: this.symbolTypes,
           }
-        });
+        }));
       }, 500);
     }
 
     setMinimized(min) {
       this.isMinimized = min;
-      if (!this.isContextValid()) return;
-      if (min) chrome.storage.local.set({ wsCalcMin: true });
-      else chrome.storage.local.remove("wsCalcMin");
+      this.safeStorage(s => min ? s.set({ wsCalcMin: true }) : s.remove("wsCalcMin"));
     }
 
     setClosed(closed) {
       this.isClosed = closed;
+      this.safeStorage(s => closed ? s.set({ wsCalcClosed: true }) : s.remove("wsCalcClosed"));
+    }
+
+    // Run a chrome.storage.local call only while the extension context is alive; never throw
+    safeStorage(fn) {
       if (!this.isContextValid()) return;
-      if (closed) chrome.storage.local.set({ wsCalcClosed: true });
-      else chrome.storage.local.remove("wsCalcClosed");
+      try { fn(chrome.storage.local); } catch (e) { /* context invalidated — ignore */ }
     }
 
     isContextValid() {
@@ -182,6 +374,8 @@
       this.root = null;
       this.toast = null;
       this.lastCalc = null;
+        this.costBasisDetector = new CostBasisDetector();
+        this.costBasis = null;
       this._pollIntervals = [];
       this._mutationObserver = null;
     }
@@ -265,9 +459,17 @@
         </div>
       </div>
     </div>
-    <div class="oi-field">
-      <label class="oi-lbl">Stock Price ($)</label>
-      <input class="oi-inp" type="number" id="oiStockPrice" placeholder="0.00" step="0.01" min="0"/>
+    <div class="oi-field oi-field-pair">
+      <div class="oi-pair">
+        <div class="oi-pair-item">
+          <label class="oi-lbl">DTE <span id="oiDteHint" style="color:var(--accent);text-transform:none;margin-left:2px;"></span></label>
+          <input class="oi-inp" type="number" id="oiDte" placeholder="0" step="1" min="0"/>
+        </div>
+        <div class="oi-pair-item">
+          <label class="oi-lbl">Stock Price ($)</label>
+          <input class="oi-inp" type="number" id="oiStockPrice" placeholder="0.00" step="0.01" min="0"/>
+        </div>
+      </div>
     </div>
     <div class="oi-field">
       <label class="oi-lbl">Option Type</label>
@@ -276,9 +478,17 @@
         <button class="oi-tog" data-type="CALL">Sell Call</button>
       </div>
     </div>
-    <div class="oi-field">
-      <label class="oi-lbl">Implied Volatility (%)</label>
-      <input class="oi-inp" type="number" id="oiIV" placeholder="0.00" step="0.1" min="0"/>
+    <div class="oi-field oi-field-pair">
+      <div class="oi-pair">
+        <div class="oi-pair-item">
+          <label class="oi-lbl">Implied Volatility (%)</label>
+          <input class="oi-inp" type="number" id="oiIV" placeholder="0.00" step="0.1" min="0"/>
+        </div>
+        <div class="oi-pair-item">
+          <label class="oi-lbl">IV Goal</label>
+          <div class="oi-iv-goal-cell"><span class="oi-iv-goal-ind" id="oiIvGoalInd">—</span></div>
+        </div>
+      </div>
     </div>
     <div class="oi-field oi-field-pair">
       <div class="oi-pair">
@@ -307,20 +517,20 @@
     <div class="oi-field oi-field-pair">
       <div class="oi-pair">
         <div class="oi-pair-item">
-          <label class="oi-lbl">DTE <span id="oiDteHint" style="color:var(--accent);text-transform:none;margin-left:2px;"></span></label>
-          <input class="oi-inp" type="number" id="oiDte" placeholder="0" step="1" min="0"/>
-        </div>
-        <div class="oi-pair-item">
           <label class="oi-lbl">Quantity</label>
           <input class="oi-inp" type="number" id="oiQty" placeholder="1" step="1" min="1" value="1"/>
+        </div>
+        <div class="oi-pair-item">
+          <label class="oi-lbl" style="color:var(--gold);">Sell Price ($)</label>
+          <input class="oi-inp" type="number" id="oiPrice" placeholder="0.00" step="0.01" min="0"/>
         </div>
       </div>
     </div>
     <div class="oi-field oi-field-pair">
       <div class="oi-pair">
         <div class="oi-pair-item">
-          <label class="oi-lbl" style="color:var(--gold);">Sell Price ($)</label>
-          <input class="oi-inp" type="number" id="oiPrice" placeholder="0.00" step="0.01" min="0"/>
+          <label class="oi-lbl" title="Return on Capital" style="cursor:help;">ROC</label>
+          <div class="oi-mid-value" id="oiRoc" title="Return on Capital">—</div>
         </div>
         <div class="oi-pair-item">
           <label class="oi-lbl" style="color:var(--gold);">Premium ($)</label>
@@ -332,6 +542,7 @@
   <div class="oi-result">
     <div class="oi-roi-cols">
       <div class="oi-roi-block">
+        <div class="oi-roi-cost oi-hidden" id="oiCostBasis">—</div>
         <div class="oi-roi-num" id="oiRoi1">—</div>
         <div class="oi-roi-lbl" id="oiRoi1Lbl">Cash-secured ROI</div>
         <div class="oi-roi-sub" id="oiRoi1Sub">bid ÷ strike ×100</div>
@@ -339,18 +550,21 @@
       <div class="oi-roi-divider"></div>
       <div class="oi-roi-block">
         <div class="oi-roi-num oi-roi2" id="oiRoi2">—</div>
-        <div class="oi-roi-lbl" id="oiRoi2Lbl">Sell ROI</div>
+        <div class="oi-roi-lbl" id="oiRoi2Lbl">ROC</div>
         <div class="oi-roi-sub" id="oiRoi2Sub">prem ÷ strike</div>
+        <div class="oi-roi-be oi-hidden" id="oiBreakeven">—</div>
       </div>
     </div>
     <div class="oi-result-rows">
-      <div class="oi-rrow"><span class="oi-rk">ROI Goals</span><div class="oi-goals" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;"><span class="oi-goal" id="oiGoalInd"></span><span class="oi-goal" id="oiGoalInd2"></span></div></div>
-      <div class="oi-rrow"><span class="oi-rk">IV Goal</span><span class="oi-iv-goal-ind" id="oiIvGoalInd"></span></div>
+      <div class="oi-rrow"><span class="oi-rk">ROI Goals</span><div class="oi-goals" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;"><span class="oi-goal" id="oiGoalInd"></span></div></div>
       <div class="oi-rrow"><span class="oi-rk">Moneyness</span><span id="oiMoneyStatus" class="oi-money-badge">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Spread %</span><span id="oiSpreadInd" class="oi-money-badge">—</span></div>
+      <div class="oi-rrow oi-hidden" id="oiCalledRow"><span class="oi-rk">If Called</span><span class="oi-money-badge" id="oiIfCalled">—</span></div>
+      <div class="oi-rrow oi-hidden" id="oiCushionRow"><span class="oi-rk">Cushion</span><span class="oi-money-badge oi-nowrap" id="oiCushion">—</span></div>
       <div class="oi-rrow"><span class="oi-rk" id="oiCapLbl">Capital Required</span><span class="oi-rv" id="oiCap">—</span></div>
     </div>
   </div>
+  <div class="oi-call-advice" id="oiCallAdvice"></div>
   <div class="oi-actions">
     <button class="oi-btn oi-btn-primary" id="oiCalc">Calculate</button>
     <button class="oi-btn oi-btn-success" id="oiAdd">Wishlist</button>
@@ -367,11 +581,11 @@
   </div>
   <div class="oi-cap-warning" id="oiCapWarn">
     <span class="oi-cap-warning-icon">⚠️</span>
-    <span class="oi-cap-warning-txt" id="oiCapWarnTxt">Total Capital required exceeds budget</span>
+    <span class="oi-cap-warning-txt" id="oiCapWarnTxt">Cash Required exceeds budget</span>
   </div>
   <div id="oiWlBody"></div>
   <div class="oi-cap-bar">
-    <span class="oi-cap-bar-lbl">Capital:</span>
+    <span class="oi-cap-bar-lbl">Cash Required:</span>
     <span class="oi-cap-bar-val" id="oiCapTotal">—</span>
     <span class="oi-cap-bar-lbl" style="margin-left:12px!important;">Premium:</span>
     <span class="oi-cap-bar-val" id="oiPremTotal">—</span>
@@ -387,11 +601,11 @@
 </div>
 <div class="oi-panel" id="oi-tab-cfg">
   <div class="oi-cfg-row">
-    <div><div class="oi-cfg-lbl">Capital ($)</div><div class="oi-cfg-sub">Budget — warn if total capital required exceeds this</div></div>
+    <div><div class="oi-cfg-lbl">Capital ($)</div><div class="oi-cfg-sub">Budget — warn if Wishlist Cash Required exceeds this</div></div>
     <div class="oi-cfg-ctrl"><div class="oi-inp-wrap"><span>$</span><input class="oi-inp" type="number" id="oiCapCfg" step="1000" min="0"/></div></div>
   </div>
   <div class="oi-cfg-row">
-    <div><div class="oi-cfg-lbl">ROI Goal</div><div class="oi-cfg-sub">Highlight rows with Cash-secured ROI ≥ this</div></div>
+    <div><div class="oi-cfg-lbl">ROI Goal</div><div class="oi-cfg-sub">Highlight rows with Cash-secured/Covered ROI ≥ this</div></div>
     <div class="oi-cfg-ctrl"><div class="oi-inp-wrap"><input class="oi-inp" type="number" id="oiGoalCfg" step="0.1" min="0" max="100"/><span>%</span></div></div>
   </div>
   <div class="oi-cfg-row">
@@ -417,14 +631,22 @@
     <div><div class="oi-cfg-lbl">Version</div></div>
     <div class="oi-cfg-ctrl" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;" id="oiVersion">IBKR Wheel</div>
   </div>
-  <div class="oi-formula-note">
-    <h3>Formulas</h3>
-    <div class="oi-formula-row"><span class="oi-formula-key">Cash-secured ROI (PUT)</span><span class="oi-formula-val">bid ÷ strike × 100 (%)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Covered ROI (CALL)</span><span class="oi-formula-val">bid ÷ stock × 100 (%)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Sell ROI (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Sell ROI (CALL)</span><span class="oi-formula-val">premium ÷ (stock × qty) (%)</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Capital Required</span><span class="oi-formula-val">strike × 100 × qty</span></div>
-  </div>
+  <!-- Collapsed by default to keep Settings short; click the title to expand -->
+  <details class="oi-formula-note">
+    <summary class="oi-formula-sum">Formulas</summary>
+    <div class="oi-formula-row"><span class="oi-formula-key">Period</span><span class="oi-formula-val">ceil(DTE ÷ 30) × 30</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Cash-secured ROI (PUT)</span><span class="oi-formula-val">bid ÷ strike ÷ DTE × period × 100</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Covered ROI (CALL)</span><span class="oi-formula-val">bid ÷ cost (or stock) ÷ DTE × period × 100</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Cost Basis (CALL)</span><span class="oi-formula-val">avg cost of open shares (sells remove at avg cost)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">If Called (CALL)</span><span class="oi-formula-val">(prem/sh or bid + strike − cost) × 100 × qty</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">ROC (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">ROC (CALL)</span><span class="oi-formula-val">premium ÷ (cost or stock × qty) (%)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Breakeven (PUT)</span><span class="oi-formula-val">strike − prem/sh or bid · cushion = (stock − BE) ÷ stock</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Breakeven (CALL)</span><span class="oi-formula-val">cost (or stock) − prem/sh or bid</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Typical Move</span><span class="oi-formula-val">IV × √(DTE ÷ 365) · safe when cushion ≥ move</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Capital Required (PUT)</span><span class="oi-formula-val">strike × 100 × qty</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Capital Held (CALL)</span><span class="oi-formula-val">cost × 100 × qty (strike if no cost)</span></div>
+  </details>
 </div>`;
     }
 
@@ -498,6 +720,8 @@
         this.root.classList.toggle("oi-minimized", min);
         this.settings.setMinimized(min);
         this.updateMinBtn();
+        // Re-render straight away so the panel matches the new mode
+        if (this.lastCalc) this.renderResult(this.lastCalc);
       });
 
       // ── Tabs ───────────────────────────────────────────────────────────
@@ -513,6 +737,7 @@
         this.root.querySelectorAll(".oi-tog").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
         this.settings.optionType = btn.dataset.type;
+          this.refreshCostBasis();
         this.saveValues();
         this.calculate();
       }));
@@ -571,6 +796,18 @@
       });
 
       this.g("oiCsv").addEventListener("click", () => this.exportCsv());
+
+      // Below-cost advice: toggle details open/closed (state kept across re-renders)
+      this.g("oiCallAdvice").addEventListener("click", e => {
+        if (!e.target.closest(".oi-advice-toggle")) return;
+        this._adviceOpen = !this._adviceOpen;
+        const box = this.g("oiCallAdvice");
+        box.classList.toggle("open", this._adviceOpen);
+        const btn = box.querySelector(".oi-advice-toggle");
+        if (btn) btn.setAttribute("aria-expanded", String(this._adviceOpen));
+        const caret = box.querySelector(".oi-advice-caret");
+        if (caret) caret.textContent = this._adviceOpen ? "▾" : "▸";
+      });
 
       // ── Clear Wishlist ─────────────────────────────────────────────────
       let clearPending = false, clearT = null;
@@ -724,9 +961,10 @@
       const premium = Utils.safe(this.g("oiPremium").value);
       const qty = Math.max(1, parseInt(this.g("oiQty").value) || 1);
       const stockPrice = Utils.safe(this.g("oiStockPrice").value);
+      const dte = parseInt(this.g("oiDte").value) || 0;
 
       const strategy = this.strategies[this.settings.optionType];
-      const res = strategy.calculate(bid, strike, premium, qty, stockPrice);
+        const res = strategy.calculate(bid, strike, premium, qty, stockPrice, dte, this.costBasis);
 
       this.lastCalc = {
         ...res,
@@ -736,6 +974,38 @@
 
       this.renderResult(this.lastCalc);
       return this.lastCalc;
+    }
+
+      // Detect assigned shares only for Sell Call; returns true if the result changed
+      refreshCostBasis() {
+          const prev = this.costBasis ? this.costBasis.key : "";
+          this.costBasis = this.settings.optionType === "CALL" ? this.costBasisDetector.detect() : null;
+          return (this.costBasis ? this.costBasis.key : "") !== prev;
+      }
+
+    // Banner: which contract the numbers are for — symbol, stock, type + strike, DTE, IV (✓/✗ vs goal), bid/ask/mid
+    updateBanner() {
+      const msg = this.g("oiBannerMsg");
+      if (!msg) return;
+      if (this._scanDetected === false) { msg.textContent = "No symbol detected."; return; }
+      const num = id => Utils.safe(this.g(id).value);
+      const sym = (this.g("oiSymbol").value || "").toUpperCase().trim();
+      const stock = num("oiStockPrice"), strike = num("oiStrike"), iv = num("oiIV");
+      const dte = parseInt(this.g("oiDte").value, 10);
+      const type = this.settings.optionType;
+      const ivMark = iv > 0 ? (iv >= this.settings.ivGoal ? " ✓" : " ✗") : "";
+      const nb = "\u00A0";
+      const parts = [
+        sym,
+        stock > 0 ? "$" + stock.toFixed(2) : "",
+        strike > 0 ? `${type}${nb}$${strike.toFixed(2)}` : type,
+        !isNaN(dte) ? `${dte}d` : "",
+        iv > 0 ? `IV${nb}${iv.toFixed(2)}%${ivMark}` : "",
+        `Bid${nb}$${num("oiBid").toFixed(2)}`,
+        `Ask${nb}$${num("oiAskPrice").toFixed(2)}`,
+        `Mid${nb}$${this.g("oiMidPrice").textContent}`,
+      ].filter(Boolean);
+      msg.textContent = parts.join(" · ");
     }
 
     updateMidPrice() {
@@ -766,14 +1036,17 @@
 
       // IV Goal
       const ivVal = parseFloat(g("oiIV").value);
-      const ivGind = g("oiIvGoalInd");
-      if (!isNaN(ivVal) && ivVal > 0) {
-        const ivHit = ivVal >= this.settings.ivGoal;
-        ivGind.textContent = ivHit ? "✓ IV ≥" + this.settings.ivGoal + "%" : "✗ IV <" + this.settings.ivGoal + "%";
-        ivGind.className = "oi-iv-goal-ind " + (ivHit ? "hit" : "miss");
-      } else {
-        ivGind.textContent = ""; ivGind.className = "oi-iv-goal-ind";
-      }
+      // IV Goal badge in the input grid (compact mode shows ✓/✗ next to IV in the banner instead)
+      const ivHit = !isNaN(ivVal) && ivVal > 0 ? ivVal >= this.settings.ivGoal : null;
+      [g("oiIvGoalInd")].forEach(ivGind => {
+        if (!ivGind) return;
+        if (ivHit !== null) {
+          ivGind.textContent = ivHit ? "✓ IV ≥" + this.settings.ivGoal + "%" : "✗ IV <" + this.settings.ivGoal + "%";
+          ivGind.className = "oi-iv-goal-ind " + (ivHit ? "hit" : "miss");
+        } else {
+          ivGind.textContent = "—"; ivGind.className = "oi-iv-goal-ind";
+        }
+      });
 
       // DTE Hint
       const dteVal = parseInt(this.g("oiDte").value);
@@ -785,24 +1058,99 @@
         else dteHint.textContent = "";
       }
 
-      const r1 = g("oiRoi1"), r2 = g("oiRoi2"), cap = g("oiCap"), si = g("oiGoalInd"), si2 = g("oiGoalInd2");
+      const r1 = g("oiRoi1"), r2 = g("oiRoi2"), cap = g("oiCap"), si = g("oiGoalInd");
+      const roc = g("oiRoc");
       if (!r) {
-        [r1, r2, cap].forEach(el => el.textContent = "—");
+        [r1, r2, cap, roc].forEach(el => el && (el.textContent = "—"));
         r1.className = "oi-roi-num"; r2.className = "oi-roi-num oi-roi2";
-        si.className = si2.className = "oi-goal oi-hidden"; return;
+        si.className = "oi-goal oi-hidden"; return;
       }
 
-      const hit1 = r.roi1 >= this.settings.roiGoal, hit2 = r.roi2 >= this.settings.roiGoal;
+      const hit1 = r.roi1 >= this.settings.roiGoal;
       r1.textContent = Utils.pct(r.roi1); r1.className = "oi-roi-num " + (hit1 ? "hit" : r.roi1 > 0 ? "pos" : "");
-      r2.textContent = Utils.pct(r.roi2); r2.className = "oi-roi-num oi-roi2 " + (hit2 ? "hit" : r.roi2 > 0 ? "pos" : "");
+      // ROC is not an ROI — not checked against the ROI Goal
+      // Same ROC in full and compact mode
+      r2.textContent = Utils.pct(r.roi2); r2.className = "oi-roi-num oi-roi2 " + (r.roi2 > 0 ? "pos" : "");
+      // ROC = Premium ÷ capital (strike cash for CSP, stock capital for CC); grid box mirrors the big ROC number
+      if (roc) roc.textContent = Utils.pct(r.roi2);
       cap.textContent = Utils.fmt$(r.cap);
 
       const capLbl = g("oiCapLbl");
       if (capLbl) capLbl.textContent = this.settings.optionType === "CALL" ? "Capital Held" : "Capital Required";
 
       g("oiRoi1Lbl").textContent = strategy.label;
-      g("oiRoi1Sub").textContent = strategy.formula;
-      g("oiRoi2Sub").textContent = strategy.roi2Sub;
+        g("oiRoi1Sub").textContent = r.costBasis ? "bid ÷ cost ÷ DTE × period × 100" : strategy.formula;
+        g("oiRoi2Sub").textContent = r.costBasis ? "prem ÷ cost" : strategy.roi2Sub;
+
+        // Cost basis & If-called (Sell Call with detected assigned shares)
+        const cb = this.settings.optionType === "CALL" ? this.costBasis : null;
+        const costEl = g("oiCostBasis"), calledRow = g("oiCalledRow");
+        if (cb && cb.avgCost) {
+            const need = (r.qty || 1) * 100;
+            const underCovered = cb.shares < need;
+            const aboveStrike = r.strike > 0 && r.strike < cb.avgCost; // called away below cost = locked-in loss
+            const warn = underCovered || aboveStrike;
+            costEl.textContent = `${warn ? "⚠ " : ""}Cost ${Utils.fmt$(cb.avgCost)} · ${cb.shares} sh`;
+            costEl.className = "oi-roi-cost" + (warn ? " warn" : "");
+            costEl.title = [
+                aboveStrike ? `Strike ${Utils.fmt$(r.strike)} is below cost ${Utils.fmt$(cb.avgCost)} — loss if called.` : "",
+                underCovered ? `Only ${cb.shares} shares — ${need} needed to cover ${r.qty} contract(s).` : "",
+                cb.skipped.length ? `Skipped transaction types: ${[...new Set(cb.skipped)].join(", ")}` : "",
+            ].filter(Boolean).join(" ");
+        } else {
+            costEl.className = "oi-roi-cost oi-hidden";
+            costEl.title = "";
+        }
+        this.renderCallAdvice(cb ? r : null);
+
+        // If Called is skipped when the below-cost advice shows — its "Net if called" is the same number
+        if (cb && r.ifCalled != null && !r.belowCost) {
+            const el = g("oiIfCalled");
+            const sign = r.ifCalled < 0 ? "−" : "";
+            el.textContent = `${sign}${Utils.fmt$(Math.abs(r.ifCalled))} (${Utils.pct(r.ifCalledPct)})`;
+            el.className = "oi-money-badge " + (r.ifCalled >= 0 ? "otm" : "itm");
+            calledRow.classList.remove("oi-hidden");
+        } else {
+            calledRow.classList.add("oi-hidden");
+        }
+
+      // Breakeven & cushion — Put: strike − premium; Call: cost basis (or stock) − premium
+      // Cushion is judged against the typical move (IV × √(DTE ÷ 365)): ≥ 1× safe, ½–1× moderate, < ½ thin
+      // Breakeven sits under the ROC number (saves a row); Cushion is its own row (% vs. typical move, coloured)
+      const be = g("oiBreakeven"), cuRow = g("oiCushionRow");
+      if (be && cuRow) {
+        if (r.breakeven != null) {
+          const cu = g("oiCushion");
+          // Small label + larger value so the number is easy to read
+          be.innerHTML = `<span class="oi-roi-be-lbl">Breakeven</span> <span class="oi-roi-be-val">${Utils.esc(Utils.fmt$(r.breakeven))}</span>`;
+          be.className = "oi-roi-be";
+          be.title = (this.settings.optionType === "CALL"
+            ? `${r.beBaseName} ${Utils.fmt$(r.beBase)} − ${Utils.fmt$(r.callPx)} ${r.callPxSrc}/share`
+            : `Strike ${Utils.fmt$(r.strike)} − ${Utils.fmt$(r.putPx)} ${r.putPxSrc}/share`)
+            + "\nStock at or above breakeven = OK · below = losing money"
+            + (this.settings.optionType === "CALL" && !r.costBasis
+              ? "\nNo cost basis detected — based on today's stock price; cushion not shown" : "");
+
+          if (r.cushionPct != null) {
+            const movePct = Utils.expectedMovePct(ivVal, dteVal);
+            const lvl = Utils.cushionLevel(r.cushionPct, movePct);
+            // e.g. "✗ Thin 6.00% (move 14.3%)" — word + % + typical move, kept short to stay on one line
+            cu.textContent = (lvl ? lvl.label + " " : "") + Utils.pct(r.cushionPct)
+              + (movePct != null ? ` (move ${movePct.toFixed(1)}%)` : "");
+            cu.className = "oi-money-badge oi-nowrap " + (lvl ? lvl.cls : "");
+            cu.title = "How far the stock can fall before hitting breakeven"
+              + (lvl ? `\n${lvl.text}` : "")
+              + (movePct != null ? "\nTypical move ≈ IV × √(DTE ÷ 365). Safe when cushion ≥ typical move." : "");
+            cuRow.classList.remove("oi-hidden");
+          } else {
+            cuRow.classList.add("oi-hidden");
+          }
+        } else {
+          be.className = "oi-roi-be oi-hidden";
+          be.title = "";
+          cuRow.classList.add("oi-hidden");
+        }
+      }
 
       const shortName1 = this.settings.optionType === "CALL" ? "Cov ROI" : "Cash ROI";
       const show1 = r.bid > 0 && r.strike > 0 && r.roi1 > 0 && isFinite(r.roi1);
@@ -811,11 +1159,6 @@
         si.className = "oi-goal " + (hit1 ? "hit" : "miss");
       } else si.className = "oi-goal oi-hidden";
 
-      const show2 = r.bid > 0 && r.strike > 0 && r.roi2 > 0 && isFinite(r.roi2);
-      if (show2) {
-        si2.textContent = (hit2 ? "✓ " : "✗ ") + "Act ROI" + (hit2 ? " (" + this.settings.roiGoal + "%)" : " −" + Math.abs(this.settings.roiGoal - r.roi2).toFixed(2) + "%");
-        si2.className = "oi-goal " + (hit2 ? "hit" : "miss");
-      } else si2.className = "oi-goal oi-hidden";
 
       // Moneyness
       const ms = g("oiMoneyStatus");
@@ -823,7 +1166,52 @@
       const money = strategy.getMoneyness(r.strike, sp) || { status: "—", risk: "", cls: "" };
       ms.textContent = money.status + (money.risk ? " · " + money.risk : "");
       ms.className = "oi-money-badge " + (money.cls || "");
+
+      this.updateBanner();
     }
+
+      // Suggestion panel when selling a call with strike below cost basis
+      renderCallAdvice(r) {
+          const box = this.g("oiCallAdvice");
+          if (!box) return;
+          const b = r && r.belowCost;
+          if (!b) {
+              box.classList.remove("show");
+              box.innerHTML = "";
+              return;
+          }
+
+          const signed = n => (n < 0 ? "−" : "+") + Utils.fmt$(Math.abs(n));
+          const calls = b.callsToRecover != null
+              ? `~${b.callsToRecover} call${b.callsToRecover === 1 ? "" : "s"} at ${Utils.fmt$(r.callPx)} ${r.callPxSrc}`
+              : "— (no premium or bid)";
+          const row = (k, v, cls = "") => `<div class="oi-advice-row"><span>${k}</span><span class="${cls}">${v}</span></div>`;
+          const net = b.shareLoss + b.premium;
+          const open = !!this._adviceOpen;
+          // Plain-text copy of the details for the hover tooltip
+          const tip = [
+              `Strike ${Utils.fmt$(r.strike)} is below cost ${Utils.fmt$(r.costBasis)} — loss if called`,
+              `Share loss ${signed(b.shareLoss)} · Premium ${signed(b.premium)} · Net if called ${signed(net)}`,
+              `Breakeven strike ≥ ${Utils.fmt$(b.breakeven)} · Calls to offset gap ${calls}`,
+          ].join("\n");
+
+          // One-line summary (always visible) + details that expand on click, to keep the panel short
+          box.innerHTML = `
+        <button type="button" class="oi-advice-toggle" aria-expanded="${open}" title="${Utils.esc(tip)}">
+          <span>⚠ Strike ${Utils.fmt$(r.strike)} below cost ${Utils.fmt$(r.costBasis)} · Net if called <b class="${net < 0 ? "neg" : "pos"}">${signed(net)}</b></span>
+          <span class="oi-advice-caret">${open ? "▾" : "▸"}</span>
+        </button>
+        <div class="oi-advice-body">
+          ${row("Share loss", signed(b.shareLoss), "neg")}
+          ${row("Premium", signed(b.premium), "pos")}
+          ${row("Net if called", signed(net), net < 0 ? "neg" : "pos")}
+          ${row("Breakeven strike", "≥ " + Utils.fmt$(b.breakeven))}
+          ${row("Calls to offset gap", calls)}
+          <div class="oi-advice-note">Consider a strike ≥ breakeven. Calls to offset assumes the same premium each cycle.</div>
+        </div>`;
+          box.classList.add("show");
+          box.classList.toggle("open", open);
+      }
 
     addToWishlist() {
       const r = this.calculate();
@@ -835,6 +1223,8 @@
         id: Date.now(), symbol: sym, etf: this.settings.etf, type: this.settings.optionType,
         bid: r.bid, strike: r.strike, premium: r.premium, price: r.price,
         qty: r.qty, roi1: r.roi1, roi2: r.roi2, cap: r.cap,
+        breakeven: r.breakeven != null ? r.breakeven : null,
+          costBasis: r.costBasis || null,
         iv: parseFloat(this.g("oiIV").value) || null,
         stockPrice: parseFloat(this.g("oiStockPrice").value) || null,
         askPrice: parseFloat(this.g("oiAskPrice").value) || null,
@@ -850,12 +1240,38 @@
       this.settings.persist(); this.renderWl(); this.updateCnt();
     }
 
+      // Re-run the calculator formula on a saved entry; returns true if values changed
+      recalcEntry(e) {
+          const strategy = this.strategies[e.type];
+          if (!strategy) return false;
+          const cb = +e.costBasis > 0 ? {avgCost: +e.costBasis} : null;
+          const res = strategy.calculate(
+              Utils.safe(e.bid), Utils.safe(e.strike), Utils.safe(e.premium),
+              Math.max(1, parseInt(e.qty) || 1), Utils.safe(e.stockPrice), parseInt(e.dte) || 0, cb
+          );
+          if (!res.roi1 && !res.roi2 && !res.cap) return false; // not enough data — keep stored values
+          const same = (a, b) => Math.abs((+a || 0) - (+b || 0)) < 1e-9;
+          const be = res.breakeven != null ? res.breakeven : null; // Sell Put only
+          const sameBe = (e.breakeven == null && be == null) || (e.breakeven != null && be != null && same(e.breakeven, be));
+          if (same(e.roi1, res.roi1) && same(e.roi2, res.roi2) && same(e.cap, res.cap) && sameBe) return false;
+          e.roi1 = res.roi1;
+          e.roi2 = res.roi2;
+          e.cap = res.cap;
+          e.breakeven = be;
+          return true;
+      }
+
     renderWl() {
       const body = this.root.querySelector("#oiWlBody");
       if (!this.settings.wishlist.length) {
-        body.innerHTML = `<div class="oi-empty"><div class="oi-empty-ico">📋</div><div>No entries yet.<br>Calculate and click <strong>Add to Wishlist</strong>.</div></div>`;
+        body.innerHTML = `<div class="oi-empty"><div class="oi-empty-ico">📋</div><div>No entries yet.<br>Calculate and click <strong>Wishlist</strong>.</div></div>`;
         this.updateCapBar(); return;
       }
+
+        // Recalculate every entry with the same strategy logic as the calculator
+        let changed = false;
+        for (const e of this.settings.wishlist) changed = this.recalcEntry(e) || changed;
+        if (changed) this.settings.persist();
 
       let rows = "";
       for (const e of this.settings.wishlist) {
@@ -870,6 +1286,7 @@
           <td class="oi-sym">${Utils.esc(e.symbol)}</td>
           <td>${e.etf || "—"}</td>
           <td>${e.stockPrice != null ? "$" + (+e.stockPrice).toFixed(2) : "—"}</td>
+          <td>${e.costBasis != null ? "$" + (+e.costBasis).toFixed(2) : "—"}</td>
           <td>${ivBadge}</td>
           <td class="${e.type === "CALL" ? "oi-call" : "oi-put"}">${e.type === "CALL" ? "Call" : "Put"}</td>
           <td class="oi-strike-col">$${(+e.strike).toFixed(2)}</td>
@@ -881,7 +1298,8 @@
           <td>${e.qty != null ? e.qty : 1}</td>
           <td>$${e.price != null ? (+e.price).toFixed(2) : "—"}</td>
           <td class="oi-prem-col">$${(+e.premium).toFixed(2)}</td>
-          <td class="oi-roi-cell ${(+e.roi2) >= this.settings.roiGoal ? "hit" : "miss"}">${(+e.roi2).toFixed(2)}%</td>
+          <td class="oi-roi-cell">${(+e.roi2).toFixed(2)}%</td>
+          <td>${e.breakeven != null ? Utils.fmt$(+e.breakeven) : "—"}</td>
           <td>${Utils.fmt$(e.cap)}</td>
           <td>${e.addedAt}</td>
           <td><button class="oi-rm" data-rm="${e.id}" title="Remove"></button></td>
@@ -892,8 +1310,8 @@
       body.innerHTML = `<div class="oi-tbl-wrap"><table class="oi-tbl">
         <thead><tr>
           <th><input type="checkbox" data-chkall="1" ${allSelected ? "checked" : ""}></th>
-          <th>Sym</th><th>Class</th><th>Stock$</th><th>IV</th><th>Type</th><th class="oi-strike-col">Strike</th><th>Bid</th>
-          <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>Sell ROI</th><th>Capital</th><th>Date</th><th></th>
+          <th>Sym</th><th>Class</th><th>Stock$</th><th>Cost$</th><th>IV</th><th>Type</th><th class="oi-strike-col">Strike</th><th>Bid</th>
+          <th>Ask</th><th>Mid</th><th>ROI</th><th>DTE</th><th>Qty</th><th>Sell Price</th><th class="oi-prem-col">Premium</th><th>ROC</th><th>Breakeven</th><th>Capital</th><th>Date</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`;
@@ -908,17 +1326,22 @@
       const totalRoi = total > 0 ? (totalPrem / total) * 100 : 0;
       const valEl = this.g("oiCapTotal"), warn = this.g("oiCapWarn"), premEl = this.g("oiPremTotal"), roiEl = this.g("oiTotalRoi");
       if (valEl) {
+          const hintEl = this.g("oiCapHint");
         if (sel.length === 0) {
           valEl.textContent = "—"; warn.classList.remove("show");
           if (premEl) premEl.textContent = "—";
           if (roiEl) roiEl.textContent = "—";
+            if (hintEl) hintEl.textContent = "(tick rows)";
         } else {
           valEl.textContent = Utils.fmt$(total);
           if (premEl) premEl.textContent = Utils.fmt$(totalPrem);
           if (roiEl) roiEl.textContent = totalRoi.toFixed(2) + "%";
+            // Premium totals use actual premium only; flag rows saved without one
+            const missing = sel.filter(e => Utils.safe(e.premium) <= 0).length;
+            if (hintEl) hintEl.textContent = missing ? `(${missing} row${missing === 1 ? "" : "s"} without premium)` : "";
           const over = total > this.settings.capital;
           warn.classList.toggle("show", over);
-          if (over) this.g("oiCapWarnTxt").textContent = `Total Capital $${total.toLocaleString()} exceeds budget $${this.settings.capital.toLocaleString()} by $${(total - this.settings.capital).toLocaleString()}`;
+            if (over) this.g("oiCapWarnTxt").textContent = `Cash Required $${total.toLocaleString()} exceeds budget $${this.settings.capital.toLocaleString()} by $${(total - this.settings.capital).toLocaleString()}`;
         }
       }
     }
@@ -943,6 +1366,7 @@
       const rows = this.settings.wishlist.map(e => ({
         "Selected": e.selected ? "Yes" : "No", "Symbol": e.symbol, "Class": e.etf || "",
         "Stock Price ($)": (+(e.stockPrice || 0)).toFixed(2),
+          "Cost Basis ($)": e.costBasis != null ? (+e.costBasis).toFixed(2) : "",
         "IV (%)": (+(e.iv || 0)).toFixed(2), "Type": e.type,
         "Strike ($)": (+(e.strike || 0)).toFixed(2),
         "Bid ($)": (+(e.bid || 0)).toFixed(2),
@@ -953,7 +1377,8 @@
         "Qty": e.qty,
         "Sell Price ($)": (+(e.price || 0)).toFixed(2),
         "Premium ($)": (+(e.premium || 0)).toFixed(2),
-        "Sell ROI (%)": (+(e.roi2 || 0)).toFixed(2),
+          "ROC (%)": (+(e.roi2 || 0)).toFixed(2),
+        "Breakeven ($)": e.breakeven != null ? (+e.breakeven).toFixed(2) : "",
         "Capital ($)": (+(e.cap || 0)).toFixed(2),
         "Added": e.addedAt,
       }));
@@ -1068,20 +1493,30 @@
       if (data.iv != null) this.g("oiIV").value = (+data.iv).toFixed(2);
       if (data.dte != null) this.g("oiDte").value = data.dte;
 
-      const midVal = this.g("oiMidPrice") ? this.g("oiMidPrice").textContent : "0.00";
-      const bidVal = this.g("oiBid") ? parseFloat(this.g("oiBid").value || 0).toFixed(2) : "0.00";
-      const askVal = this.g("oiAskPrice") ? parseFloat(this.g("oiAskPrice").value || 0).toFixed(2) : "0.00";
-      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(2) + "%" : "", "Bid\u00A0$" + bidVal, "Ask\u00A0$" + askVal, "Mid\u00A0$" + midVal].filter(Boolean);
-      this.g("oiBannerMsg").textContent = data.detected ? parts.join(" · ") : "No symbol detected.";
+      // Banner text is rebuilt on every recalculation (updateBanner) so it follows the clicked strike
+      this._scanDetected = !!data.detected;
       this.g("oiBanner").classList.remove("oi-hidden");
 
+        this.refreshCostBasis();
       this.saveValues(); this.calculate();
+    }
+
+    // After the extension is reloaded/updated, this old script copy loses its chrome.* access.
+    // Stop its pollers, observer, and pending save so it can't throw "Extension context invalidated".
+    stopIfOrphaned() {
+      if (this.settings.isContextValid()) return false;
+      this._pollIntervals.forEach(id => clearInterval(id));
+      this._pollIntervals = [];
+      if (this._mutationObserver) { this._mutationObserver.disconnect(); this._mutationObserver = null; }
+      if (this.settings._persistTimer) { clearTimeout(this.settings._persistTimer); this.settings._persistTimer = null; }
+      return true;
     }
 
     setupObservers() {
       let t = null;
       let scanning = false;
       this._mutationObserver = new MutationObserver((mutations) => {
+        if (this.stopIfOrphaned()) return;
         if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         // Ignore mutations from our own overlay
         const fromSelf = mutations.every(m => this.root.contains(m.target));
@@ -1089,6 +1524,7 @@
         if (scanning) return;
         clearTimeout(t);
         t = setTimeout(() => {
+          if (this.stopIfOrphaned()) return;
           if (scanning) return;
           scanning = true;
           try {
@@ -1104,6 +1540,7 @@
     setupPollers() {
       // Fast poll (300ms) for bid/strike/askPrice
       this._pollIntervals.push(setInterval(() => {
+        if (this.stopIfOrphaned()) return;
         if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         const fpv = Utils.nEl(Utils.qs(SEL.bidPut)), fcv = Utils.nEl(Utils.qs(SEL.bidCall));
         const fBid = (this.settings.optionType === "CALL" ? fcv : fpv);
@@ -1127,6 +1564,7 @@
 
       // Slow poll (2000ms) for DTE and Qty
       this._pollIntervals.push(setInterval(() => {
+        if (this.stopIfOrphaned()) return;
         if (!this.root || !this.settings.autoScan || this.root.classList.contains("oi-hidden")) return;
         const days = this.detectDte();
         if (days != null && days !== parseInt(this.g("oiDte").value)) {
@@ -1137,6 +1575,7 @@
         if (qty != null && qty !== parseInt(this.g("oiQty").value)) {
           this.g("oiQty").value = qty; this.saveValues(); this.calculate();
         }
+          if (this.refreshCostBasis()) this.calculate();
       }, 2000));
     }
 
