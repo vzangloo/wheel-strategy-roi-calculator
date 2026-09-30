@@ -552,15 +552,14 @@
         <div class="oi-roi-num oi-roi2" id="oiRoi2">—</div>
         <div class="oi-roi-lbl" id="oiRoi2Lbl">ROC</div>
         <div class="oi-roi-sub" id="oiRoi2Sub">prem ÷ strike</div>
+        <div class="oi-roi-be oi-hidden" id="oiBreakeven">—</div>
       </div>
     </div>
     <div class="oi-result-rows">
       <div class="oi-rrow"><span class="oi-rk">ROI Goals</span><div class="oi-goals" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;"><span class="oi-goal" id="oiGoalInd"></span></div></div>
-      <div class="oi-rrow oi-compact-only"><span class="oi-rk">IV Goal</span><span class="oi-iv-goal-ind" id="oiIvGoalIndMini">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Moneyness</span><span id="oiMoneyStatus" class="oi-money-badge">—</span></div>
       <div class="oi-rrow"><span class="oi-rk">Spread %</span><span id="oiSpreadInd" class="oi-money-badge">—</span></div>
       <div class="oi-rrow oi-hidden" id="oiCalledRow"><span class="oi-rk">If Called</span><span class="oi-money-badge" id="oiIfCalled">—</span></div>
-      <div class="oi-rrow oi-hidden" id="oiBreakevenRow"><span class="oi-rk">Breakeven</span><span class="oi-money-badge oi-nowrap" id="oiBreakeven">—</span></div>
       <div class="oi-rrow oi-hidden" id="oiCushionRow"><span class="oi-rk">Cushion</span><span class="oi-money-badge oi-nowrap" id="oiCushion">—</span></div>
       <div class="oi-rrow"><span class="oi-rk" id="oiCapLbl">Capital Required</span><span class="oi-rv" id="oiCap">—</span></div>
     </div>
@@ -606,7 +605,7 @@
     <div class="oi-cfg-ctrl"><div class="oi-inp-wrap"><span>$</span><input class="oi-inp" type="number" id="oiCapCfg" step="1000" min="0"/></div></div>
   </div>
   <div class="oi-cfg-row">
-    <div><div class="oi-cfg-lbl">ROI Goal</div><div class="oi-cfg-sub">Highlight rows with Cash-secured ROI ≥ this</div></div>
+    <div><div class="oi-cfg-lbl">ROI Goal</div><div class="oi-cfg-sub">Highlight rows with Cash-secured/Covered ROI ≥ this</div></div>
     <div class="oi-cfg-ctrl"><div class="oi-inp-wrap"><input class="oi-inp" type="number" id="oiGoalCfg" step="0.1" min="0" max="100"/><span>%</span></div></div>
   </div>
   <div class="oi-cfg-row">
@@ -632,20 +631,22 @@
     <div><div class="oi-cfg-lbl">Version</div></div>
     <div class="oi-cfg-ctrl" style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px;" id="oiVersion">IBKR Wheel</div>
   </div>
-  <div class="oi-formula-note">
-    <h3>Formulas</h3>
+  <!-- Collapsed by default to keep Settings short; click the title to expand -->
+  <details class="oi-formula-note">
+    <summary class="oi-formula-sum">Formulas</summary>
     <div class="oi-formula-row"><span class="oi-formula-key">Period</span><span class="oi-formula-val">ceil(DTE ÷ 30) × 30</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Cash-secured ROI (PUT)</span><span class="oi-formula-val">bid ÷ strike ÷ DTE × period × 100</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Covered ROI (CALL)</span><span class="oi-formula-val">bid ÷ cost (or stock) ÷ DTE × period × 100</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Cost Basis (CALL)</span><span class="oi-formula-val">Σ buy amount ÷ shares (avg cost)</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Cost Basis (CALL)</span><span class="oi-formula-val">avg cost of open shares (sells remove at avg cost)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">If Called (CALL)</span><span class="oi-formula-val">(prem/sh or bid + strike − cost) × 100 × qty</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">ROC (PUT)</span><span class="oi-formula-val">premium ÷ (strike × qty) (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">ROC (CALL)</span><span class="oi-formula-val">premium ÷ (cost or stock × qty) (%)</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Breakeven (PUT)</span><span class="oi-formula-val">strike − prem/sh or bid · cushion = (stock − BE) ÷ stock</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Breakeven (CALL)</span><span class="oi-formula-val">cost (or stock) − prem/sh or bid</span></div>
     <div class="oi-formula-row"><span class="oi-formula-key">Typical Move</span><span class="oi-formula-val">IV × √(DTE ÷ 365) · safe when cushion ≥ move</span></div>
-    <div class="oi-formula-row"><span class="oi-formula-key">Capital Required</span><span class="oi-formula-val">strike × 100 × qty</span></div>
-  </div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Capital Required (PUT)</span><span class="oi-formula-val">strike × 100 × qty</span></div>
+    <div class="oi-formula-row"><span class="oi-formula-key">Capital Held (CALL)</span><span class="oi-formula-val">cost × 100 × qty (strike if no cost)</span></div>
+  </details>
 </div>`;
     }
 
@@ -719,6 +720,8 @@
         this.root.classList.toggle("oi-minimized", min);
         this.settings.setMinimized(min);
         this.updateMinBtn();
+        // Re-render straight away so the panel matches the new mode
+        if (this.lastCalc) this.renderResult(this.lastCalc);
       });
 
       // ── Tabs ───────────────────────────────────────────────────────────
@@ -793,6 +796,18 @@
       });
 
       this.g("oiCsv").addEventListener("click", () => this.exportCsv());
+
+      // Below-cost advice: toggle details open/closed (state kept across re-renders)
+      this.g("oiCallAdvice").addEventListener("click", e => {
+        if (!e.target.closest(".oi-advice-toggle")) return;
+        this._adviceOpen = !this._adviceOpen;
+        const box = this.g("oiCallAdvice");
+        box.classList.toggle("open", this._adviceOpen);
+        const btn = box.querySelector(".oi-advice-toggle");
+        if (btn) btn.setAttribute("aria-expanded", String(this._adviceOpen));
+        const caret = box.querySelector(".oi-advice-caret");
+        if (caret) caret.textContent = this._adviceOpen ? "▾" : "▸";
+      });
 
       // ── Clear Wishlist ─────────────────────────────────────────────────
       let clearPending = false, clearT = null;
@@ -968,6 +983,31 @@
           return (this.costBasis ? this.costBasis.key : "") !== prev;
       }
 
+    // Banner: which contract the numbers are for — symbol, stock, type + strike, DTE, IV (✓/✗ vs goal), bid/ask/mid
+    updateBanner() {
+      const msg = this.g("oiBannerMsg");
+      if (!msg) return;
+      if (this._scanDetected === false) { msg.textContent = "No symbol detected."; return; }
+      const num = id => Utils.safe(this.g(id).value);
+      const sym = (this.g("oiSymbol").value || "").toUpperCase().trim();
+      const stock = num("oiStockPrice"), strike = num("oiStrike"), iv = num("oiIV");
+      const dte = parseInt(this.g("oiDte").value, 10);
+      const type = this.settings.optionType;
+      const ivMark = iv > 0 ? (iv >= this.settings.ivGoal ? " ✓" : " ✗") : "";
+      const nb = "\u00A0";
+      const parts = [
+        sym,
+        stock > 0 ? "$" + stock.toFixed(2) : "",
+        strike > 0 ? `${type}${nb}$${strike.toFixed(2)}` : type,
+        !isNaN(dte) ? `${dte}d` : "",
+        iv > 0 ? `IV${nb}${iv.toFixed(2)}%${ivMark}` : "",
+        `Bid${nb}$${num("oiBid").toFixed(2)}`,
+        `Ask${nb}$${num("oiAskPrice").toFixed(2)}`,
+        `Mid${nb}$${this.g("oiMidPrice").textContent}`,
+      ].filter(Boolean);
+      msg.textContent = parts.join(" · ");
+    }
+
     updateMidPrice() {
       const bid = Utils.safe(this.g("oiBid").value);
       const ask = Utils.safe(this.g("oiAskPrice").value);
@@ -996,9 +1036,9 @@
 
       // IV Goal
       const ivVal = parseFloat(g("oiIV").value);
-      // Same badge in the input grid and in the compact-mode results row
+      // IV Goal badge in the input grid (compact mode shows ✓/✗ next to IV in the banner instead)
       const ivHit = !isNaN(ivVal) && ivVal > 0 ? ivVal >= this.settings.ivGoal : null;
-      [g("oiIvGoalInd"), g("oiIvGoalIndMini")].forEach(ivGind => {
+      [g("oiIvGoalInd")].forEach(ivGind => {
         if (!ivGind) return;
         if (ivHit !== null) {
           ivGind.textContent = ivHit ? "✓ IV ≥" + this.settings.ivGoal + "%" : "✗ IV <" + this.settings.ivGoal + "%";
@@ -1029,6 +1069,7 @@
       const hit1 = r.roi1 >= this.settings.roiGoal;
       r1.textContent = Utils.pct(r.roi1); r1.className = "oi-roi-num " + (hit1 ? "hit" : r.roi1 > 0 ? "pos" : "");
       // ROC is not an ROI — not checked against the ROI Goal
+      // Same ROC in full and compact mode
       r2.textContent = Utils.pct(r.roi2); r2.className = "oi-roi-num oi-roi2 " + (r.roi2 > 0 ? "pos" : "");
       // ROC = Premium ÷ capital (strike cash for CSP, stock capital for CC); grid box mirrors the big ROC number
       if (roc) roc.textContent = Utils.pct(r.roi2);
@@ -1062,7 +1103,8 @@
         }
         this.renderCallAdvice(cb ? r : null);
 
-        if (cb && r.ifCalled != null) {
+        // If Called is skipped when the below-cost advice shows — its "Net if called" is the same number
+        if (cb && r.ifCalled != null && !r.belowCost) {
             const el = g("oiIfCalled");
             const sign = r.ifCalled < 0 ? "−" : "";
             el.textContent = `${sign}${Utils.fmt$(Math.abs(r.ifCalled))} (${Utils.pct(r.ifCalledPct)})`;
@@ -1074,20 +1116,20 @@
 
       // Breakeven & cushion — Put: strike − premium; Call: cost basis (or stock) − premium
       // Cushion is judged against the typical move (IV × √(DTE ÷ 365)): ≥ 1× safe, ½–1× moderate, < ½ thin
-      // Two short rows so neither wraps: Breakeven ($) and Cushion (% vs. typical move, coloured by safety)
-      const beRow = g("oiBreakevenRow"), cuRow = g("oiCushionRow");
-      if (beRow && cuRow) {
+      // Breakeven sits under the ROC number (saves a row); Cushion is its own row (% vs. typical move, coloured)
+      const be = g("oiBreakeven"), cuRow = g("oiCushionRow");
+      if (be && cuRow) {
         if (r.breakeven != null) {
-          const be = g("oiBreakeven"), cu = g("oiCushion");
-          be.textContent = Utils.fmt$(r.breakeven);
-          be.className = "oi-money-badge oi-nowrap";
+          const cu = g("oiCushion");
+          // Small label + larger value so the number is easy to read
+          be.innerHTML = `<span class="oi-roi-be-lbl">Breakeven</span> <span class="oi-roi-be-val">${Utils.esc(Utils.fmt$(r.breakeven))}</span>`;
+          be.className = "oi-roi-be";
           be.title = (this.settings.optionType === "CALL"
             ? `${r.beBaseName} ${Utils.fmt$(r.beBase)} − ${Utils.fmt$(r.callPx)} ${r.callPxSrc}/share`
             : `Strike ${Utils.fmt$(r.strike)} − ${Utils.fmt$(r.putPx)} ${r.putPxSrc}/share`)
             + "\nStock at or above breakeven = OK · below = losing money"
             + (this.settings.optionType === "CALL" && !r.costBasis
               ? "\nNo cost basis detected — based on today's stock price; cushion not shown" : "");
-          beRow.classList.remove("oi-hidden");
 
           if (r.cushionPct != null) {
             const movePct = Utils.expectedMovePct(ivVal, dteVal);
@@ -1104,7 +1146,8 @@
             cuRow.classList.add("oi-hidden");
           }
         } else {
-          beRow.classList.add("oi-hidden");
+          be.className = "oi-roi-be oi-hidden";
+          be.title = "";
           cuRow.classList.add("oi-hidden");
         }
       }
@@ -1123,6 +1166,8 @@
       const money = strategy.getMoneyness(r.strike, sp) || { status: "—", risk: "", cls: "" };
       ms.textContent = money.status + (money.risk ? " · " + money.risk : "");
       ms.className = "oi-money-badge " + (money.cls || "");
+
+      this.updateBanner();
     }
 
       // Suggestion panel when selling a call with strike below cost basis
@@ -1141,16 +1186,31 @@
               ? `~${b.callsToRecover} call${b.callsToRecover === 1 ? "" : "s"} at ${Utils.fmt$(r.callPx)} ${r.callPxSrc}`
               : "— (no premium or bid)";
           const row = (k, v, cls = "") => `<div class="oi-advice-row"><span>${k}</span><span class="${cls}">${v}</span></div>`;
+          const net = b.shareLoss + b.premium;
+          const open = !!this._adviceOpen;
+          // Plain-text copy of the details for the hover tooltip
+          const tip = [
+              `Strike ${Utils.fmt$(r.strike)} is below cost ${Utils.fmt$(r.costBasis)} — loss if called`,
+              `Share loss ${signed(b.shareLoss)} · Premium ${signed(b.premium)} · Net if called ${signed(net)}`,
+              `Breakeven strike ≥ ${Utils.fmt$(b.breakeven)} · Calls to offset gap ${calls}`,
+          ].join("\n");
 
+          // One-line summary (always visible) + details that expand on click, to keep the panel short
           box.innerHTML = `
-        <div class="oi-advice-title">⚠ Strike ${Utils.fmt$(r.strike)} is below cost ${Utils.fmt$(r.costBasis)} — loss if called</div>
-        ${row("Share loss", signed(b.shareLoss), "neg")}
-        ${row("Premium", signed(b.premium), "pos")}
-        ${row("Net if called", signed(b.shareLoss + b.premium), b.shareLoss + b.premium < 0 ? "neg" : "pos")}
-        ${row("Breakeven strike", "≥ " + Utils.fmt$(b.breakeven))}
-        ${row("Calls to offset gap", calls)}
-        <div class="oi-advice-note">Consider a strike ≥ breakeven. Calls to offset assumes the same premium each cycle.</div>`;
+        <button type="button" class="oi-advice-toggle" aria-expanded="${open}" title="${Utils.esc(tip)}">
+          <span>⚠ Strike ${Utils.fmt$(r.strike)} below cost ${Utils.fmt$(r.costBasis)} · Net if called <b class="${net < 0 ? "neg" : "pos"}">${signed(net)}</b></span>
+          <span class="oi-advice-caret">${open ? "▾" : "▸"}</span>
+        </button>
+        <div class="oi-advice-body">
+          ${row("Share loss", signed(b.shareLoss), "neg")}
+          ${row("Premium", signed(b.premium), "pos")}
+          ${row("Net if called", signed(net), net < 0 ? "neg" : "pos")}
+          ${row("Breakeven strike", "≥ " + Utils.fmt$(b.breakeven))}
+          ${row("Calls to offset gap", calls)}
+          <div class="oi-advice-note">Consider a strike ≥ breakeven. Calls to offset assumes the same premium each cycle.</div>
+        </div>`;
           box.classList.add("show");
+          box.classList.toggle("open", open);
       }
 
     addToWishlist() {
@@ -1204,7 +1264,7 @@
     renderWl() {
       const body = this.root.querySelector("#oiWlBody");
       if (!this.settings.wishlist.length) {
-        body.innerHTML = `<div class="oi-empty"><div class="oi-empty-ico">📋</div><div>No entries yet.<br>Calculate and click <strong>Add to Wishlist</strong>.</div></div>`;
+        body.innerHTML = `<div class="oi-empty"><div class="oi-empty-ico">📋</div><div>No entries yet.<br>Calculate and click <strong>Wishlist</strong>.</div></div>`;
         this.updateCapBar(); return;
       }
 
@@ -1433,11 +1493,8 @@
       if (data.iv != null) this.g("oiIV").value = (+data.iv).toFixed(2);
       if (data.dte != null) this.g("oiDte").value = data.dte;
 
-      const midVal = this.g("oiMidPrice") ? this.g("oiMidPrice").textContent : "0.00";
-      const bidVal = this.g("oiBid") ? parseFloat(this.g("oiBid").value || 0).toFixed(2) : "0.00";
-      const askVal = this.g("oiAskPrice") ? parseFloat(this.g("oiAskPrice").value || 0).toFixed(2) : "0.00";
-      const parts = [data.symbol, data.stockPrice ? "$" + data.stockPrice.toFixed(2) : "", data.type, data.iv ? "IV " + data.iv.toFixed(2) + "%" : "", "Bid\u00A0$" + bidVal, "Ask\u00A0$" + askVal, "Mid\u00A0$" + midVal].filter(Boolean);
-      this.g("oiBannerMsg").textContent = data.detected ? parts.join(" · ") : "No symbol detected.";
+      // Banner text is rebuilt on every recalculation (updateBanner) so it follows the clicked strike
+      this._scanDetected = !!data.detected;
       this.g("oiBanner").classList.remove("oi-hidden");
 
         this.refreshCostBasis();

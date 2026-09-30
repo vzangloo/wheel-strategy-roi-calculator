@@ -10,14 +10,14 @@ Use this checklist to evaluate whether a Wheel Strategy trade is set up for maxi
 
 | #  | Criteria                     | Ideal                       | Why                                                            |
 |----|------------------------------|-----------------------------|----------------------------------------------------------------|
-| 1  | **IV Rank / IV Percentile**  | High (IV ≥ 40%)             | Higher IV = fatter premiums. Sell when IV is elevated.         |
+| 1  | **Implied Volatility (IV)**  | High (IV ≥ 40%, IV Goal)    | Higher IV = fatter premiums. Sell when IV is elevated.         |
 | 2  | **DTE (Days to Expiration)** | 30–45 days                  | Sweet spot for theta decay. Best time-value-to-risk ratio.     |
 | 3  | **Strike Selection (Put)**   | OTM, delta 0.20–0.30        | Lower assignment risk while still collecting decent premium.   |
 | 4  | **Strike Selection (Call)**  | OTM, delta 0.20–0.30        | Keep shares if bullish, collect premium above cost basis.      |
 | 5  | **Spread %**                 | < 5% (Very Liquid)          | Tight spreads = better fills, less slippage.                   |
 | 6  | **Open Interest**            | ≥ 100 contracts             | High OI = active market, easier to enter/exit positions.       |
 | 7  | **Volume**                   | ≥ 50 contracts/day          | High volume = competitive pricing, tighter bid-ask.            |
-| 8  | **ROI per Trade**            | ≥ 2.5% per cycle            | Consistent income target. Compounds over time.                 |
+| 8  | **Cash-secured / Covered ROI** | ≥ 2.5% (ROI Goal)         | Quick check at the bid, scaled to a 30-day block.              |
 | 9  | **Stock Fundamentals**       | Strong company you'd own    | Only wheel stocks you're happy to hold if assigned.            |
 | 10 | **No Earnings / Events**     | Avoid earnings week         | Earnings cause unpredictable gaps that can blow past strikes.  |
 | 11 | **Moneyness**                | OTM (Lower Risk)            | Avoid ATM/ITM unless intentionally seeking assignment.         |
@@ -27,6 +27,8 @@ Use this checklist to evaluate whether a Wheel Strategy trade is set up for maxi
 
 **Rule of thumb:** If a trade meets criteria 1–8 and 11, it's a strong candidate. Criteria 9–10 and 12–14 are risk
 management guardrails.
+
+The calculator shows criteria 1, 2, 5, 8 and 11. Check delta, open interest, volume, fundamentals and earnings in IBKR.
 
 ---
 
@@ -54,8 +56,8 @@ management guardrails.
 
 ## Delta Guide
 
-Delta measures the probability of an option expiring in-the-money and how much the option price moves per $1 change in
-the stock.
+Delta measures the probability of an option expiring in-the-money and how much the option price moves per \$1 change in
+the stock. Not shown by the calculator — check it in IBKR.
 
 | Delta Range | Meaning                                | Use in Wheel Strategy                                |
 |-------------|----------------------------------------|------------------------------------------------------|
@@ -110,7 +112,7 @@ It ends lower than −X% about **1 in 6 times** (~16%), and higher than +X% abou
 - **Earnings and news** can cause moves far larger than the typical move. Avoid selling across earnings.
 - **Sell Call:** the cushion measures downside protection on your shares, not the chance of being called away. It's
   shown only when a cost basis is detected.
-- Needs both **IV and DTE** — without them the panel shows no typical move or rating.
+- Needs both **IV and DTE** — without them the panel shows no typical move or rating (except ✗ Below).
 
 ---
 
@@ -120,12 +122,12 @@ The bid-ask spread percentage indicates how liquid an option contract is. Lower 
 
 **Formula:** `Spread % = (Ask - Bid) ÷ Mid Price × 100`
 
-| Spread % | Meaning              | Action                            |
-|----------|----------------------|-----------------------------------|
-| < 5%     | Very Liquid (good)   | Trade confidently                 |
-| 5–10%    | Okay                 | Acceptable, use limit orders      |
-| 10–20%   | Tradable but Careful | Use limit orders, expect slippage |
-| > 20%    | Illiquid / Avoid     | Skip — poor fills, hard to exit   |
+| Spread %     | Panel label          | Action                            |
+|--------------|----------------------|-----------------------------------|
+| < 5%         | Very Liquid (Good)   | Trade confidently                 |
+| 5% – < 10%   | Okay                 | Acceptable, use limit orders      |
+| 10% – < 20%  | Tradable (Careful)   | Use limit orders, expect slippage |
+| ≥ 20%        | Illiquid (Avoid)     | Skip — poor fills, hard to exit   |
 
 **Cheap options:** for premiums under about \$0.50, a small dollar gap looks large in %. Check the dollar spread
 instead — \$0.05 or less is usually fine.
@@ -135,7 +137,7 @@ instead — \$0.05 or less is usually fine.
 ## Open Interest & Volume
 
 Open interest and volume indicate how actively an option contract is traded. Higher values mean better liquidity and
-easier order fills.
+easier order fills. Not shown by the calculator — check them in IBKR.
 
 ### Open Interest (OI)
 

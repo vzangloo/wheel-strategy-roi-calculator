@@ -581,6 +581,32 @@
     cursor: default !important;
 }
 
+/* Breakeven under the ROC number — uses spare space instead of a results row */
+#__option-roi-root__ .oi-roi-be {
+    font-family: var(--mono) !important;
+    white-space: nowrap !important;
+    margin-top: 6px !important;
+    padding: 2px 8px !important;
+    border-radius: 4px !important;
+    background: rgba(139, 148, 158, .15) !important;
+    cursor: default !important;
+    display: flex !important;
+    align-items: baseline !important;
+    gap: 5px !important;
+}
+
+#__option-roi-root__ .oi-roi-be-lbl {
+    font-size: 10px !important;
+    font-weight: 500 !important;
+    color: var(--muted) !important;
+}
+
+#__option-roi-root__ .oi-roi-be-val {
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    color: var(--text) !important;
+}
+
 #__option-roi-root__ .oi-roi-cost.warn {
     color: var(--warn) !important;
     background: rgba(248, 81, 73, .15) !important;
@@ -771,7 +797,7 @@
     background: var(--warn-bg) !important;
     border: 1px solid var(--warn-bord) !important;
     border-radius: var(--r) !important;
-    padding: 8px 12px !important;
+    padding: 5px 12px !important;
     margin-bottom: 8px !important;
     font-family: var(--mono) !important;
     font-size: 11px !important;
@@ -781,10 +807,59 @@
     display: block !important;
 }
 
-#__option-roi-root__ .oi-advice-title {
+/* One-line summary; details stay hidden until clicked */
+#__option-roi-root__ .oi-advice-toggle {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 8px !important;
+    width: 100% !important;
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
     color: var(--warn) !important;
+    font-family: var(--mono) !important;
+    font-size: 11px !important;
     font-weight: 600 !important;
-    margin-bottom: 6px !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle > span:first-child {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle b {
+    font-weight: 700 !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle b.neg {
+    color: var(--warn) !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle b.pos {
+    color: var(--green) !important;
+}
+
+#__option-roi-root__ .oi-advice-toggle:focus-visible {
+    outline: 1px solid var(--warn) !important;
+    outline-offset: 2px !important;
+}
+
+#__option-roi-root__ .oi-advice-caret {
+    flex-shrink: 0 !important;
+}
+
+#__option-roi-root__ .oi-advice-body {
+    display: none !important;
+    margin-top: 6px !important;
+}
+
+#__option-roi-root__ .oi-call-advice.open .oi-advice-body {
+    display: block !important;
 }
 
 #__option-roi-root__ .oi-advice-row {
@@ -811,7 +886,17 @@
     font-family: var(--sans) !important;
 }
 
-#__option-roi-root__.oi-minimized .oi-call-advice {
+/* Compact mode hides Breakeven, If Called and the below-cost advice — they stay in the full view */
+/* Cushion stays visible in compact mode: it's the quickest safety check while clicking strikes.
+   Higher-specificity rule so an older injected stylesheet (still on the page after an extension
+   reload) can't hide it. The row is still hidden when it has .oi-hidden (no cushion to show). */
+#__option-roi-root__.oi-minimized .oi-result-rows #oiCushionRow:not(.oi-hidden) {
+    display: flex !important;
+}
+
+#__option-roi-root__.oi-minimized .oi-call-advice,
+#__option-roi-root__.oi-minimized .oi-roi-be,
+#__option-roi-root__.oi-minimized #oiCalledRow {
     display: none !important;
 }
 
@@ -1463,15 +1548,42 @@
   border-radius: var(--r) !important;
 }
 
-#__option-roi-root__ .oi-formula-note h3 {
+/* Collapsible title (native <details>/<summary>); caret ▸ closed, ▾ open */
+#__option-roi-root__ .oi-formula-sum {
   font-family: var(--mono) !important;
   font-size: 10px !important;
   font-weight: 600 !important;
   color: var(--muted) !important;
   text-transform: uppercase !important;
   letter-spacing: .06em !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  list-style: none !important;
+  cursor: pointer !important;
+  user-select: none !important;
+}
+
+#__option-roi-root__ .oi-formula-sum::-webkit-details-marker {
+  display: none !important;
+}
+
+#__option-roi-root__ .oi-formula-sum::before {
+  content: "▸" !important;
+  font-size: 10px !important;
+}
+
+#__option-roi-root__ .oi-formula-note[open] > .oi-formula-sum::before {
+  content: "▾" !important;
+}
+
+#__option-roi-root__ .oi-formula-note[open] > .oi-formula-sum {
   margin-bottom: 6px !important;
-  display: block !important;
+}
+
+#__option-roi-root__ .oi-formula-sum:hover,
+#__option-roi-root__ .oi-formula-sum:focus-visible {
+  color: var(--accent) !important;
 }
 
 #__option-roi-root__ .oi-formula-row {
@@ -1659,14 +1771,7 @@
   white-space: nowrap !important;
 }
 
-/* Rows shown only in compact mode (e.g. IV Goal, which lives in the input grid otherwise) */
-#__option-roi-root__ .oi-rrow.oi-compact-only {
-  display: none !important;
-}
 
-#__option-roi-root__.oi-minimized .oi-rrow.oi-compact-only {
-  display: flex !important;
-}
 
 #__option-roi-root__.oi-minimized .oi-actions {
   display: none !important;
